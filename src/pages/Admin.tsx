@@ -1,17 +1,56 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const Admin = () => {
   const [question, setQuestion] = useState("");
   const [options, setOptions] = useState(["", "", "", ""]);
   const [correctAnswer, setCorrectAnswer] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      try {
+        const user = (await supabase.auth.getUser()).data.user;
+        if (!user) {
+          navigate('/auth');
+          return;
+        }
+
+        const { data: adminCheck } = await supabase
+          .rpc('is_admin', { user_id: user.id });
+
+        if (!adminCheck) {
+          toast({
+            title: "Access Denied",
+            description: "You need admin privileges to access this page",
+            variant: "destructive",
+          });
+          navigate('/');
+          return;
+        }
+
+        setIsAdmin(true);
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+        navigate('/');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAdminStatus();
+  }, [navigate, toast]);
 
   const handleOptionChange = (index: number, value: string) => {
     const newOptions = [...options];
@@ -41,6 +80,18 @@ const Admin = () => {
     setOptions(["", "", "", ""]);
     setCorrectAnswer(0);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 flex items-center justify-center">
+        <p className="text-lg">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
