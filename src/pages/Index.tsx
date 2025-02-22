@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Trophy, Users } from "lucide-react";
+import { Trophy, Users, Play } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -65,23 +65,32 @@ const Index = () => {
           </h1>
           
           {userTeam ? (
-            <div className="p-6 bg-primary/5 rounded-lg">
-              <h2 className="text-xl font-semibold mb-2">Your Team</h2>
-              <p className="text-lg text-primary">{userTeam.name}</p>
+            <div className="space-y-6">
+              <div className="p-6 bg-primary/5 rounded-lg">
+                <h2 className="text-xl font-semibold mb-2">Your Team</h2>
+                <p className="text-lg text-primary">{userTeam.name}</p>
+              </div>
+              <Button asChild size="lg" className="animate-pulse hover:animate-none" variant="default">
+                <Link to="/quiz" className="inline-flex items-center gap-2">
+                  <Play className="w-5 h-5" />
+                  Start Quiz
+                </Link>
+              </Button>
             </div>
           ) : (
-            <p className="text-xl text-gray-600">
-              Join the ultimate quiz competition platform where knowledge meets excitement.
-            </p>
+            <div className="space-y-6">
+              <p className="text-xl text-gray-600">
+                Join the ultimate quiz competition platform where knowledge meets excitement.
+              </p>
+              <div className="flex items-center justify-center gap-4">
+                {!loading && (
+                  <Button asChild size="lg" className="animate-slideIn" style={{ animationDelay: "0.2s" }}>
+                    <Link to="/teams">Register Team</Link>
+                  </Button>
+                )}
+              </div>
+            </div>
           )}
-          
-          <div className="flex items-center justify-center gap-4">
-            {!loading && !userTeam && (
-              <Button asChild size="lg" className="animate-slideIn" style={{ animationDelay: "0.2s" }}>
-                <Link to="/teams">Register Team</Link>
-              </Button>
-            )}
-          </div>
         </div>
 
         <div className="grid md:grid-cols-2 gap-8 mt-16">
