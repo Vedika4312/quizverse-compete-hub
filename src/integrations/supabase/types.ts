@@ -38,28 +38,34 @@ export type Database = {
       }
       quiz_questions: {
         Row: {
-          correct_answer: number
+          correct_answer: string
           created_at: string
           created_by: string
           id: string
           options: Json
           question: string
+          question_type: string
+          time_limit: number
         }
         Insert: {
-          correct_answer: number
+          correct_answer: string
           created_at?: string
           created_by: string
           id?: string
           options: Json
           question: string
+          question_type?: string
+          time_limit?: number
         }
         Update: {
-          correct_answer?: number
+          correct_answer?: string
           created_at?: string
           created_by?: string
           id?: string
           options?: Json
           question?: string
+          question_type?: string
+          time_limit?: number
         }
         Relationships: []
       }

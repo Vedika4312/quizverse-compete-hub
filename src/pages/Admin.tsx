@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -9,18 +8,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Trash2 } from "lucide-react";
+import type { Database } from "@/integrations/supabase/types";
 
 type QuestionType = 'multiple_choice' | 'written';
 
-interface QuizQuestion {
-  id: string;
-  question: string;
+type DatabaseQuizQuestion = Database["public"]["Tables"]["quiz_questions"]["Row"];
+
+interface QuizQuestion extends Omit<DatabaseQuizQuestion, 'options'> {
   options: string[];
-  correct_answer: string;
   question_type: QuestionType;
-  created_at: string;
-  created_by: string;
-  time_limit: number;
 }
 
 const Admin = () => {
@@ -84,9 +80,9 @@ const Admin = () => {
         const transformedQuestions: QuizQuestion[] = data.map(q => ({
           ...q,
           options: q.options as string[],
-          question_type: (q.question_type as QuestionType) || 'multiple_choice',
+          question_type: (q.question_type || 'multiple_choice') as QuestionType,
           time_limit: q.time_limit || 30,
-          correct_answer: q.correct_answer.toString()
+          correct_answer: q.correct_answer
         }));
         setExistingQuestions(transformedQuestions);
       }
@@ -168,13 +164,13 @@ const Admin = () => {
         options: questionType === 'multiple_choice' ? options : [],
         correct_answer: questionType === 'multiple_choice' ? correctAnswer.toString() : writtenAnswer,
         question_type: questionType,
-        created_by: user?.id,
+        created_by: user?.id ?? '',
         time_limit: timeLimit
       };
 
       const { error } = await supabase
         .from('quiz_questions')
-        .insert(newQuestion);
+        .insert(newQuestion as DatabaseQuizQuestion);
 
       if (error) throw error;
 
