@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -7,13 +8,24 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Trash2 } from "lucide-react";
+
+interface QuizQuestion {
+  id: string;
+  question: string;
+  options: string[];
+  correct_answer: number;
+  created_at: string;
+}
 
 const Admin = () => {
   const [question, setQuestion] = useState("");
   const [options, setOptions] = useState(["", "", "", ""]);
   const [correctAnswer, setCorrectAnswer] = useState(0);
+  const [timeLimit, setTimeLimit] = useState(30); // Default 30 seconds
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [existingQuestions, setExistingQuestions] = useState<QuizQuestion[]>([]);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -40,6 +52,7 @@ const Admin = () => {
         }
 
         setIsAdmin(true);
+        fetchQuestions();
       } catch (error) {
         console.error('Error checking admin status:', error);
         navigate('/');
@@ -51,10 +64,58 @@ const Admin = () => {
     checkAdminStatus();
   }, [navigate, toast]);
 
+  const fetchQuestions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('quiz_questions')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setExistingQuestions(data.map(q => ({
+        ...q,
+        options: q.options as string[]
+      })));
+    } catch (error) {
+      console.error('Error fetching questions:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch existing questions",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleOptionChange = (index: number, value: string) => {
     const newOptions = [...options];
     newOptions[index] = value;
     setOptions(newOptions);
+  };
+
+  const handleDelete = async (questionId: string) => {
+    try {
+      const { error } = await supabase
+        .from('quiz_questions')
+        .delete()
+        .eq('id', questionId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Question deleted successfully",
+      });
+      
+      fetchQuestions(); // Refresh the list
+    } catch (error) {
+      console.error('Error deleting question:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete question",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -76,7 +137,8 @@ const Admin = () => {
           question,
           options,
           correct_answer: correctAnswer,
-          created_by: user?.id
+          created_by: user?.id,
+          time_limit: timeLimit // Add time limit to the question
         });
 
       if (error) throw error;
@@ -90,6 +152,10 @@ const Admin = () => {
       setQuestion("");
       setOptions(["", "", "", ""]);
       setCorrectAnswer(0);
+      setTimeLimit(30);
+      
+      // Refresh questions list
+      fetchQuestions();
     } catch (error) {
       console.error('Error adding question:', error);
       toast({
@@ -115,7 +181,7 @@ const Admin = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
       <div className="container mx-auto px-4 py-16">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-4xl mx-auto space-y-8">
           <Card className="p-6 animate-slideIn">
             <h2 className="text-2xl font-semibold mb-6">Add Quiz Question</h2>
             
@@ -128,6 +194,18 @@ const Admin = () => {
                   onChange={(e) => setQuestion(e.target.value)}
                   placeholder="Enter your question"
                   className="min-h-[100px]"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="timeLimit">Time Limit (seconds)</Label>
+                <Input
+                  id="timeLimit"
+                  type="number"
+                  min="5"
+                  max="300"
+                  value={timeLimit}
+                  onChange={(e) => setTimeLimit(Number(e.target.value))}
                 />
               </div>
 
@@ -157,6 +235,40 @@ const Admin = () => {
                 Add Question
               </Button>
             </form>
+          </Card>
+
+          <Card className="p-6">
+            <h2 className="text-2xl font-semibold mb-6">Existing Questions</h2>
+            <div className="space-y-4">
+              {existingQuestions.map((q, index) => (
+                <Card key={q.id} className="p-4 border">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-2 flex-1">
+                      <p className="font-medium">Question {index + 1}: {q.question}</p>
+                      <div className="pl-4 space-y-1">
+                        {q.options.map((option, optIndex) => (
+                          <p key={optIndex} className={optIndex === q.correct_answer ? "text-green-600 font-medium" : "text-gray-600"}>
+                            {optIndex + 1}. {option} {optIndex === q.correct_answer && " (Correct)"}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => handleDelete(q.id)}
+                      className="ml-4"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+              
+              {existingQuestions.length === 0 && (
+                <p className="text-gray-500 text-center">No questions added yet</p>
+              )}
+            </div>
           </Card>
         </div>
       </div>
