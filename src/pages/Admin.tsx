@@ -16,7 +16,7 @@ interface QuizQuestion {
   id: string;
   question: string;
   options: string[];
-  correct_answer: number | string;
+  correct_answer: string;
   question_type: QuestionType;
   created_at: string;
   created_by: string;
@@ -26,7 +26,7 @@ interface QuizQuestion {
 const Admin = () => {
   const [question, setQuestion] = useState("");
   const [options, setOptions] = useState(["", "", "", ""]);
-  const [correctAnswer, setCorrectAnswer] = useState<number | string>(0);
+  const [correctAnswer, setCorrectAnswer] = useState<number>(0);
   const [questionType, setQuestionType] = useState<QuestionType>("multiple_choice");
   const [writtenAnswer, setWrittenAnswer] = useState("");
   const [timeLimit, setTimeLimit] = useState(30);
@@ -80,11 +80,16 @@ const Admin = () => {
 
       if (error) throw error;
 
-      setExistingQuestions(data.map(q => ({
-        ...q,
-        options: q.options as string[],
-        question_type: q.question_type || 'multiple_choice'
-      })));
+      if (data) {
+        const transformedQuestions: QuizQuestion[] = data.map(q => ({
+          ...q,
+          options: q.options as string[],
+          question_type: (q.question_type as QuestionType) || 'multiple_choice',
+          time_limit: q.time_limit || 30,
+          correct_answer: q.correct_answer.toString()
+        }));
+        setExistingQuestions(transformedQuestions);
+      }
     } catch (error) {
       console.error('Error fetching questions:', error);
       toast({
@@ -115,7 +120,7 @@ const Admin = () => {
         description: "Question deleted successfully",
       });
       
-      fetchQuestions(); // Refresh the list
+      fetchQuestions();
     } catch (error) {
       console.error('Error deleting question:', error);
       toast({
@@ -158,16 +163,18 @@ const Admin = () => {
     
     try {
       const user = (await supabase.auth.getUser()).data.user;
+      const newQuestion = {
+        question,
+        options: questionType === 'multiple_choice' ? options : [],
+        correct_answer: questionType === 'multiple_choice' ? correctAnswer.toString() : writtenAnswer,
+        question_type: questionType,
+        created_by: user?.id,
+        time_limit: timeLimit
+      };
+
       const { error } = await supabase
         .from('quiz_questions')
-        .insert({
-          question,
-          options: questionType === 'multiple_choice' ? options : [],
-          correct_answer: questionType === 'multiple_choice' ? correctAnswer : writtenAnswer,
-          question_type: questionType,
-          created_by: user?.id,
-          time_limit: timeLimit
-        });
+        .insert(newQuestion);
 
       if (error) throw error;
 
@@ -307,8 +314,8 @@ const Admin = () => {
                       <div className="pl-4 space-y-1">
                         {q.question_type === 'multiple_choice' ? (
                           q.options.map((option, optIndex) => (
-                            <p key={optIndex} className={optIndex === q.correct_answer ? "text-green-600 font-medium" : "text-gray-600"}>
-                              {optIndex + 1}. {option} {optIndex === q.correct_answer && " (Correct)"}
+                            <p key={optIndex} className={optIndex.toString() === q.correct_answer ? "text-green-600 font-medium" : "text-gray-600"}>
+                              {optIndex + 1}. {option} {optIndex.toString() === q.correct_answer && " (Correct)"}
                             </p>
                           ))
                         ) : (
