@@ -6,19 +6,19 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
-type QuizQuestion = {
-  id: string;
-  question: string;
+type QuestionType = 'multiple_choice' | 'written';
+
+type DatabaseQuizQuestion = Database["public"]["Tables"]["quiz_questions"]["Row"];
+
+interface QuizQuestion extends Omit<DatabaseQuizQuestion, 'options'> {
   options: string[];
-  correct_answer: number;
-  created_at: string;
-  created_by: string;
-};
+  question_type: QuestionType;
+}
 
 const Quiz = () => {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [quizStarted, setQuizStarted] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -32,13 +32,16 @@ const Quiz = () => {
 
       if (error) throw error;
 
-      // Transform the data to ensure options is string[]
-      const transformedData = (data || []).map(question => ({
-        ...question,
-        options: question.options as string[], // Cast the JSON options to string[]
-      }));
-
-      setQuestions(transformedData);
+      if (data) {
+        const transformedQuestions: QuizQuestion[] = data.map(q => ({
+          ...q,
+          options: q.options as string[],
+          question_type: (q.question_type || 'multiple_choice') as QuestionType,
+          time_limit: q.time_limit || 30,
+          correct_answer: q.correct_answer
+        }));
+        setQuestions(transformedQuestions);
+      }
     } catch (error) {
       console.error('Error fetching questions:', error);
       toast({
@@ -80,8 +83,16 @@ const Quiz = () => {
       return;
     }
 
-    if (selectedAnswer === questions[currentQuestion].correct_answer) {
-      setScore(score + 1);
+    const currentQ = questions[currentQuestion];
+    if (currentQ.question_type === 'multiple_choice') {
+      if (selectedAnswer === currentQ.correct_answer) {
+        setScore(score + 1);
+      }
+    } else {
+      // For written questions, do a case-insensitive comparison
+      if (selectedAnswer.toLowerCase() === currentQ.correct_answer.toLowerCase()) {
+        setScore(score + 1);
+      }
     }
 
     if (currentQuestion + 1 < questions.length) {
@@ -91,7 +102,7 @@ const Quiz = () => {
       // Quiz completed
       toast({
         title: "Quiz Completed!",
-        description: `Your score: ${score + (selectedAnswer === questions[currentQuestion].correct_answer ? 1 : 0)}/${questions.length}`,
+        description: `Your score: ${score}/${questions.length}`,
       });
       setQuizStarted(false);
     }
@@ -133,16 +144,26 @@ const Quiz = () => {
                   <p className="text-lg">{questions[currentQuestion].question}</p>
                   
                   <div className="space-y-2">
-                    {questions[currentQuestion].options.map((option, index) => (
-                      <Button
-                        key={index}
-                        variant={selectedAnswer === index ? "default" : "outline"}
-                        className="w-full justify-start text-left"
-                        onClick={() => setSelectedAnswer(index)}
-                      >
-                        {option}
-                      </Button>
-                    ))}
+                    {questions[currentQuestion].question_type === 'multiple_choice' ? (
+                      questions[currentQuestion].options.map((option, index) => (
+                        <Button
+                          key={index}
+                          variant={selectedAnswer === index.toString() ? "default" : "outline"}
+                          className="w-full justify-start text-left"
+                          onClick={() => setSelectedAnswer(index.toString())}
+                        >
+                          {option}
+                        </Button>
+                      ))
+                    ) : (
+                      <input
+                        type="text"
+                        value={selectedAnswer || ''}
+                        onChange={(e) => setSelectedAnswer(e.target.value)}
+                        placeholder="Type your answer"
+                        className="w-full p-2 border rounded-md"
+                      />
+                    )}
                   </div>
                 </div>
 
