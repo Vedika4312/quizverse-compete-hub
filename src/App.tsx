@@ -10,6 +10,7 @@ import Navigation from "./components/Navigation";
 import Index from "./pages/Index";
 import Teams from "./pages/Teams";
 import Admin from "./pages/Admin";
+import Quiz from "./pages/Quiz";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -67,6 +68,19 @@ const App = () => (
                   <Navigation />
                   <div className="pt-16">
                     <Index />
+                  </div>
+                </>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/quiz"
+            element={
+              <ProtectedRoute>
+                <>
+                  <Navigation />
+                  <div className="pt-16">
+                    <Quiz />
                   </div>
                 </>
               </ProtectedRoute>

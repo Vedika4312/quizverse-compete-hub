@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -58,7 +57,7 @@ const Admin = () => {
     setOptions(newOptions);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!question || options.some(option => !option)) {
       toast({
@@ -69,16 +68,36 @@ const Admin = () => {
       return;
     }
     
-    // TODO: Submit question to database
-    toast({
-      title: "Success!",
-      description: "Question added successfully",
-    });
-    
-    // Reset form
-    setQuestion("");
-    setOptions(["", "", "", ""]);
-    setCorrectAnswer(0);
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      const { error } = await supabase
+        .from('quiz_questions')
+        .insert({
+          question,
+          options,
+          correct_answer: correctAnswer,
+          created_by: user?.id
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success!",
+        description: "Question added successfully",
+      });
+      
+      // Reset form
+      setQuestion("");
+      setOptions(["", "", "", ""]);
+      setCorrectAnswer(0);
+    } catch (error) {
+      console.error('Error adding question:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add question. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (isLoading) {
