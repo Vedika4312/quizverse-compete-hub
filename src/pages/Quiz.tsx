@@ -4,13 +4,16 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 
-interface QuizQuestion {
+type QuizQuestion = {
   id: string;
   question: string;
   options: string[];
   correct_answer: number;
-}
+  created_at: string;
+  created_by: string;
+};
 
 const Quiz = () => {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -29,7 +32,13 @@ const Quiz = () => {
 
       if (error) throw error;
 
-      setQuestions(data || []);
+      // Transform the data to ensure options is string[]
+      const transformedData = (data || []).map(question => ({
+        ...question,
+        options: question.options as string[], // Cast the JSON options to string[]
+      }));
+
+      setQuestions(transformedData);
     } catch (error) {
       console.error('Error fetching questions:', error);
       toast({
