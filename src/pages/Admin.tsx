@@ -10,19 +10,26 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Trash2 } from "lucide-react";
 
+type QuestionType = 'multiple_choice' | 'written';
+
 interface QuizQuestion {
   id: string;
   question: string;
   options: string[];
-  correct_answer: number;
+  correct_answer: number | string;
+  question_type: QuestionType;
   created_at: string;
+  created_by: string;
+  time_limit: number;
 }
 
 const Admin = () => {
   const [question, setQuestion] = useState("");
   const [options, setOptions] = useState(["", "", "", ""]);
-  const [correctAnswer, setCorrectAnswer] = useState(0);
-  const [timeLimit, setTimeLimit] = useState(30); // Default 30 seconds
+  const [correctAnswer, setCorrectAnswer] = useState<number | string>(0);
+  const [questionType, setQuestionType] = useState<QuestionType>("multiple_choice");
+  const [writtenAnswer, setWrittenAnswer] = useState("");
+  const [timeLimit, setTimeLimit] = useState(30);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [existingQuestions, setExistingQuestions] = useState<QuizQuestion[]>([]);
@@ -75,7 +82,8 @@ const Admin = () => {
 
       setExistingQuestions(data.map(q => ({
         ...q,
-        options: q.options as string[]
+        options: q.options as string[],
+        question_type: q.question_type || 'multiple_choice'
       })));
     } catch (error) {
       console.error('Error fetching questions:', error);
@@ -120,10 +128,29 @@ const Admin = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!question || options.some(option => !option)) {
+    
+    if (!question) {
       toast({
         title: "Error",
-        description: "Please fill in all fields",
+        description: "Please fill in the question",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (questionType === 'multiple_choice' && options.some(option => !option)) {
+      toast({
+        title: "Error",
+        description: "Please fill in all options for multiple choice question",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (questionType === 'written' && !writtenAnswer) {
+      toast({
+        title: "Error",
+        description: "Please provide the correct answer for written question",
         variant: "destructive",
       });
       return;
@@ -135,10 +162,11 @@ const Admin = () => {
         .from('quiz_questions')
         .insert({
           question,
-          options,
-          correct_answer: correctAnswer,
+          options: questionType === 'multiple_choice' ? options : [],
+          correct_answer: questionType === 'multiple_choice' ? correctAnswer : writtenAnswer,
+          question_type: questionType,
           created_by: user?.id,
-          time_limit: timeLimit // Add time limit to the question
+          time_limit: timeLimit
         });
 
       if (error) throw error;
@@ -152,6 +180,7 @@ const Admin = () => {
       setQuestion("");
       setOptions(["", "", "", ""]);
       setCorrectAnswer(0);
+      setWrittenAnswer("");
       setTimeLimit(30);
       
       // Refresh questions list
@@ -187,6 +216,19 @@ const Admin = () => {
             
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
+                <Label htmlFor="questionType">Question Type</Label>
+                <select
+                  id="questionType"
+                  value={questionType}
+                  onChange={(e) => setQuestionType(e.target.value as QuestionType)}
+                  className="w-full p-2 border rounded-md"
+                >
+                  <option value="multiple_choice">Multiple Choice</option>
+                  <option value="written">Written Answer</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="question">Question</Label>
                 <Textarea
                   id="question"
@@ -209,27 +251,41 @@ const Admin = () => {
                 />
               </div>
 
-              {options.map((option, index) => (
-                <div key={index} className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor={`option${index}`}>Option {index + 1}</Label>
-                    <input
-                      type="radio"
-                      name="correctAnswer"
-                      checked={correctAnswer === index}
-                      onChange={() => setCorrectAnswer(index)}
-                      className="ml-2"
-                    />
-                    <span className="text-sm text-gray-500">Correct answer</span>
-                  </div>
+              {questionType === 'multiple_choice' ? (
+                <>
+                  {options.map((option, index) => (
+                    <div key={index} className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor={`option${index}`}>Option {index + 1}</Label>
+                        <input
+                          type="radio"
+                          name="correctAnswer"
+                          checked={correctAnswer === index}
+                          onChange={() => setCorrectAnswer(index)}
+                          className="ml-2"
+                        />
+                        <span className="text-sm text-gray-500">Correct answer</span>
+                      </div>
+                      <Input
+                        id={`option${index}`}
+                        value={option}
+                        onChange={(e) => handleOptionChange(index, e.target.value)}
+                        placeholder={`Enter option ${index + 1}`}
+                      />
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="writtenAnswer">Correct Answer</Label>
                   <Input
-                    id={`option${index}`}
-                    value={option}
-                    onChange={(e) => handleOptionChange(index, e.target.value)}
-                    placeholder={`Enter option ${index + 1}`}
+                    id="writtenAnswer"
+                    value={writtenAnswer}
+                    onChange={(e) => setWrittenAnswer(e.target.value)}
+                    placeholder="Enter the correct answer"
                   />
                 </div>
-              ))}
+              )}
 
               <Button type="submit" className="w-full">
                 Add Question
@@ -244,14 +300,24 @@ const Admin = () => {
                 <Card key={q.id} className="p-4 border">
                   <div className="flex justify-between items-start">
                     <div className="space-y-2 flex-1">
-                      <p className="font-medium">Question {index + 1}: {q.question}</p>
-                      <div className="pl-4 space-y-1">
-                        {q.options.map((option, optIndex) => (
-                          <p key={optIndex} className={optIndex === q.correct_answer ? "text-green-600 font-medium" : "text-gray-600"}>
-                            {optIndex + 1}. {option} {optIndex === q.correct_answer && " (Correct)"}
-                          </p>
-                        ))}
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">Question {index + 1}: {q.question}</p>
+                        <span className="text-sm text-gray-500">({q.question_type})</span>
                       </div>
+                      <div className="pl-4 space-y-1">
+                        {q.question_type === 'multiple_choice' ? (
+                          q.options.map((option, optIndex) => (
+                            <p key={optIndex} className={optIndex === q.correct_answer ? "text-green-600 font-medium" : "text-gray-600"}>
+                              {optIndex + 1}. {option} {optIndex === q.correct_answer && " (Correct)"}
+                            </p>
+                          ))
+                        ) : (
+                          <p className="text-green-600 font-medium">
+                            Correct Answer: {q.correct_answer}
+                          </p>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-500">Time Limit: {q.time_limit} seconds</p>
                     </div>
                     <Button
                       variant="destructive"
