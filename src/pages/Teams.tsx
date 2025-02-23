@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,8 +12,27 @@ const Teams = () => {
   const [teamName, setTeamName] = useState("");
   const [members, setMembers] = useState(["", "", ""]);
   const [isLoading, setIsLoading] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to create a team",
+          variant: "destructive",
+        });
+        navigate("/auth");
+        return;
+      }
+      setUserId(user.id);
+    };
+
+    checkAuth();
+  }, [navigate, toast]);
 
   const handleMemberChange = (index: number, value: string) => {
     const newMembers = [...members];
@@ -32,37 +51,40 @@ const Teams = () => {
       return;
     }
 
+    if (!userId) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to create a team",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const user = (await supabase.auth.getUser()).data.user;
-      if (!user) throw new Error("User not authenticated");
-
       // Create the team
       const { data: team, error: teamError } = await supabase
         .from('teams')
         .insert({
           name: teamName,
-          captain_id: user.id,
+          captain_id: userId,
         })
         .select()
         .single();
 
       if (teamError) throw teamError;
 
-      // Add team members
-      const memberPromises = members.map(async (memberEmail) => {
-        // You might want to validate emails here
-        const { data: memberUser, error: memberUserError } = await supabase
+      // Add team members including the captain
+      const memberPromises = [...members, userId].map(async (memberEmail) => {
+        const { error: memberError } = await supabase
           .from('team_members')
           .insert({
             team_id: team.id,
-            user_id: user.id, // For now, we're adding the current user as a member
-          })
-          .select();
+            user_id: userId, // For now, we're setting all members as the current user
+          });
 
-        if (memberUserError) throw memberUserError;
-        return memberUser;
+        if (memberError) throw memberError;
       });
 
       await Promise.all(memberPromises);
@@ -72,20 +94,23 @@ const Teams = () => {
         description: "Team registration completed successfully",
       });
 
-      // Redirect to index page
       navigate('/');
       
     } catch (error: any) {
       console.error('Error registering team:', error);
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to create team",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (!userId) {
+    return null; // Don't render anything while checking authentication
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
