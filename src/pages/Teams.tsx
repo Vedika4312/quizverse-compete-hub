@@ -10,9 +10,11 @@ import { supabase } from "@/integrations/supabase/client";
 
 const Teams = () => {
   const [teamName, setTeamName] = useState("");
+  const [captainName, setCaptainName] = useState("");
   const [members, setMembers] = useState(["", "", ""]);
   const [isLoading, setIsLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [hasTeam, setHasTeam] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -29,6 +31,26 @@ const Teams = () => {
         return;
       }
       setUserId(user.id);
+
+      // Check if user already has a team
+      const { data: team, error: teamError } = await supabase
+        .from('teams')
+        .select('*')
+        .eq('captain_id', user.id)
+        .maybeSingle();
+
+      if (teamError) {
+        console.error('Error checking team:', teamError);
+        return;
+      }
+
+      if (team) {
+        setHasTeam(true);
+        toast({
+          title: "Team Already Exists",
+          description: "You have already created a team",
+        });
+      }
     };
 
     checkAuth();
@@ -42,10 +64,10 @@ const Teams = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!teamName || members.some(member => !member)) {
+    if (!teamName || !captainName || members.some(member => !member)) {
       toast({
         title: "Error",
-        description: "Please fill in all fields",
+        description: "Please fill in all fields including team name, captain name, and member names",
         variant: "destructive",
       });
       return;
@@ -73,22 +95,38 @@ const Teams = () => {
         .select()
         .single();
 
-      if (teamError) throw teamError;
+      if (teamError) {
+        if (teamError.code === '23505') {
+          throw new Error("You can only create one team");
+        }
+        throw teamError;
+      }
 
       // Add team members including the captain
-      const memberPromises = [...members, userId].map(async (memberEmail) => {
-        const { error: memberError } = await supabase
+      const memberPromises = [
+        // Add captain first
+        supabase
           .from('team_members')
           .insert({
             team_id: team.id,
-            user_id: userId, // For now, we're setting all members as the current user
-          });
-
-        if (memberError) throw memberError;
-      });
+            user_id: userId,
+            member_name: captainName
+          }),
+        // Then add other members
+        ...members.map(memberName =>
+          supabase
+            .from('team_members')
+            .insert({
+              team_id: team.id,
+              user_id: userId,
+              member_name: memberName
+            })
+        )
+      ];
 
       await Promise.all(memberPromises);
 
+      setHasTeam(true);
       toast({
         title: "Success!",
         description: "Team registration completed successfully",
@@ -108,8 +146,8 @@ const Teams = () => {
     }
   };
 
-  if (!userId) {
-    return null; // Don't render anything while checking authentication
+  if (!userId || hasTeam) {
+    return null; // Don't render the form if user is not authenticated or already has a team
   }
 
   return (
@@ -131,6 +169,17 @@ const Teams = () => {
                 />
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="captainName">Captain Name</Label>
+                <Input
+                  id="captainName"
+                  value={captainName}
+                  onChange={(e) => setCaptainName(e.target.value)}
+                  placeholder="Enter captain's name"
+                  disabled={isLoading}
+                />
+              </div>
+
               {members.map((member, index) => (
                 <div key={index} className="space-y-2">
                   <Label htmlFor={`member${index}`}>Team Member {index + 1}</Label>
@@ -138,8 +187,7 @@ const Teams = () => {
                     id={`member${index}`}
                     value={member}
                     onChange={(e) => handleMemberChange(index, e.target.value)}
-                    placeholder={`Enter member ${index + 1} email`}
-                    type="email"
+                    placeholder={`Enter member ${index + 1} name`}
                     disabled={isLoading}
                   />
                 </div>
