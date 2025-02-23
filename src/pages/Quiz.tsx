@@ -5,15 +5,17 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import type { Database } from "@/integrations/supabase/types";
+import type { PostgrestError } from "@supabase/supabase-js";
 
 type QuestionType = 'multiple_choice' | 'written';
 
-type DatabaseQuizQuestion = Database["public"]["Tables"]["quiz_questions"]["Row"];
-
-interface QuizQuestion extends Omit<DatabaseQuizQuestion, 'options'> {
+interface QuizQuestion {
+  id: string;
+  question: string;
   options: string[];
   question_type: QuestionType;
+  time_limit: number;
+  correct_answer: string;
 }
 
 const Quiz = () => {
@@ -26,6 +28,7 @@ const Quiz = () => {
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [answers, setAnswers] = useState<string[]>([]);
   const [quizCompleted, setQuizCompleted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -97,7 +100,7 @@ const Quiz = () => {
   };
 
   const handleNextQuestion = useCallback(() => {
-    if (selectedAnswer === null) {
+    if (!selectedAnswer) {
       toast({
         title: "Select an Answer",
         description: "Please select an answer before proceeding",
@@ -131,43 +134,47 @@ const Quiz = () => {
 
   const handleSubmitQuiz = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      setSubmitting(true);
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
       
-      if (!user) {
-        toast({
-          title: "Error",
-          description: "You must be logged in to submit the quiz",
-          variant: "destructive",
-        });
-        return;
+      if (authError || !user) {
+        throw new Error("You must be logged in to submit the quiz");
       }
 
-      const { error } = await supabase
+      const { error: insertError } = await supabase
         .from('quiz_results')
-        .insert({
+        .insert([{
           user_id: user.id,
           score: score,
           total_questions: questions.length
-        });
+        }]);
 
-      if (error) throw error;
+      if (insertError) throw insertError;
 
       toast({
         title: "Quiz Submitted",
         description: "Your responses have been recorded successfully",
       });
 
+      // Reset quiz state
       setQuizStarted(false);
       setQuizCompleted(false);
+      setScore(0);
+      setAnswers([]);
+      
+      // Navigate back to home
       navigate('/');
 
     } catch (error) {
-      console.error('Error submitting quiz:', error);
+      const e = error as Error | PostgrestError;
+      console.error('Error submitting quiz:', e);
       toast({
         title: "Error",
-        description: "Failed to submit quiz results",
+        description: e.message || "Failed to submit quiz results",
         variant: "destructive",
       });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -201,7 +208,9 @@ const Quiz = () => {
                         Question {currentQuestion + 1} of {questions.length}
                       </h3>
                       {timeRemaining !== null && (
-                        <span className="text-sm font-medium px-3 py-1 bg-primary/10 rounded-full">
+                        <span className={`text-sm font-medium px-3 py-1 rounded-full ${
+                          timeRemaining <= 10 ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-primary/10'
+                        }`}>
                           Time: {timeRemaining}s
                         </span>
                       )}
@@ -250,8 +259,9 @@ const Quiz = () => {
                     <Button 
                       onClick={handleSubmitQuiz}
                       className="w-full"
+                      disabled={submitting}
                     >
-                      Submit Quiz
+                      {submitting ? "Submitting..." : "Submit Quiz"}
                     </Button>
                   </div>
                 )}
