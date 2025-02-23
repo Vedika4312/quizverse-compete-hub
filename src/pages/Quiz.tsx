@@ -1,9 +1,10 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 import type { Database } from "@/integrations/supabase/types";
 
 type QuestionType = 'multiple_choice' | 'written';
@@ -22,7 +23,11 @@ const Quiz = () => {
   const [score, setScore] = useState(0);
   const [quizStarted, setQuizStarted] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const [answers, setAnswers] = useState<string[]>([]);
+  const [quizCompleted, setQuizCompleted] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const fetchQuestions = async () => {
     try {
@@ -58,6 +63,22 @@ const Quiz = () => {
     fetchQuestions();
   }, []);
 
+  useEffect(() => {
+    if (!quizStarted || timeRemaining === null) return;
+
+    const timer = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev === null || prev <= 0) {
+          handleNextQuestion();
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [quizStarted, timeRemaining]);
+
   const handleStartQuiz = () => {
     if (questions.length === 0) {
       toast({
@@ -71,9 +92,11 @@ const Quiz = () => {
     setCurrentQuestion(0);
     setScore(0);
     setSelectedAnswer(null);
+    setAnswers([]);
+    setTimeRemaining(questions[0].time_limit);
   };
 
-  const handleNextQuestion = () => {
+  const handleNextQuestion = useCallback(() => {
     if (selectedAnswer === null) {
       toast({
         title: "Select an Answer",
@@ -86,25 +109,65 @@ const Quiz = () => {
     const currentQ = questions[currentQuestion];
     if (currentQ.question_type === 'multiple_choice') {
       if (selectedAnswer === currentQ.correct_answer) {
-        setScore(score + 1);
+        setScore(prev => prev + 1);
       }
     } else {
-      // For written questions, do a case-insensitive comparison
       if (selectedAnswer.toLowerCase() === currentQ.correct_answer.toLowerCase()) {
-        setScore(score + 1);
+        setScore(prev => prev + 1);
       }
     }
+
+    // Store the answer
+    setAnswers(prev => [...prev, selectedAnswer]);
 
     if (currentQuestion + 1 < questions.length) {
       setCurrentQuestion(currentQuestion + 1);
       setSelectedAnswer(null);
+      setTimeRemaining(questions[currentQuestion + 1].time_limit);
     } else {
-      // Quiz completed
+      setQuizCompleted(true);
+    }
+  }, [currentQuestion, questions, selectedAnswer, toast]);
+
+  const handleSubmitQuiz = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          title: "Error",
+          description: "You must be logged in to submit the quiz",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('quiz_results')
+        .insert({
+          user_id: user.id,
+          score: score,
+          total_questions: questions.length
+        });
+
+      if (error) throw error;
+
       toast({
-        title: "Quiz Completed!",
-        description: `Your score: ${score}/${questions.length}`,
+        title: "Quiz Submitted",
+        description: "Your responses have been recorded successfully",
       });
+
       setQuizStarted(false);
+      setQuizCompleted(false);
+      navigate('/');
+
+    } catch (error) {
+      console.error('Error submitting quiz:', error);
+      toast({
+        title: "Error",
+        description: "Failed to submit quiz results",
+        variant: "destructive",
+      });
     }
   };
 
@@ -131,48 +194,67 @@ const Quiz = () => {
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-medium">
-                    Question {currentQuestion + 1} of {questions.length}
-                  </h3>
-                  <span className="text-sm text-gray-600">
-                    Score: {score}/{currentQuestion}
-                  </span>
-                </div>
+                {!quizCompleted ? (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-lg font-medium">
+                        Question {currentQuestion + 1} of {questions.length}
+                      </h3>
+                      {timeRemaining !== null && (
+                        <span className="text-sm font-medium px-3 py-1 bg-primary/10 rounded-full">
+                          Time: {timeRemaining}s
+                        </span>
+                      )}
+                    </div>
 
-                <div className="space-y-4">
-                  <p className="text-lg">{questions[currentQuestion].question}</p>
-                  
-                  <div className="space-y-2">
-                    {questions[currentQuestion].question_type === 'multiple_choice' ? (
-                      questions[currentQuestion].options.map((option, index) => (
-                        <Button
-                          key={index}
-                          variant={selectedAnswer === index.toString() ? "default" : "outline"}
-                          className="w-full justify-start text-left"
-                          onClick={() => setSelectedAnswer(index.toString())}
-                        >
-                          {option}
-                        </Button>
-                      ))
-                    ) : (
-                      <input
-                        type="text"
-                        value={selectedAnswer || ''}
-                        onChange={(e) => setSelectedAnswer(e.target.value)}
-                        placeholder="Type your answer"
-                        className="w-full p-2 border rounded-md"
-                      />
-                    )}
+                    <div className="space-y-4">
+                      <p className="text-lg">{questions[currentQuestion].question}</p>
+                      
+                      <div className="space-y-2">
+                        {questions[currentQuestion].question_type === 'multiple_choice' ? (
+                          questions[currentQuestion].options.map((option, index) => (
+                            <Button
+                              key={index}
+                              variant={selectedAnswer === index.toString() ? "default" : "outline"}
+                              className="w-full justify-start text-left"
+                              onClick={() => setSelectedAnswer(index.toString())}
+                            >
+                              {option}
+                            </Button>
+                          ))
+                        ) : (
+                          <input
+                            type="text"
+                            value={selectedAnswer || ''}
+                            onChange={(e) => setSelectedAnswer(e.target.value)}
+                            placeholder="Type your answer"
+                            className="w-full p-2 border rounded-md"
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    <Button 
+                      onClick={handleNextQuestion}
+                      className="w-full"
+                    >
+                      {currentQuestion + 1 === questions.length ? "Finish Quiz" : "Next Question"}
+                    </Button>
+                  </>
+                ) : (
+                  <div className="text-center space-y-4">
+                    <h3 className="text-xl font-medium">Quiz Completed!</h3>
+                    <p className="text-gray-600">
+                      You've answered all the questions. Click submit to record your responses.
+                    </p>
+                    <Button 
+                      onClick={handleSubmitQuiz}
+                      className="w-full"
+                    >
+                      Submit Quiz
+                    </Button>
                   </div>
-                </div>
-
-                <Button 
-                  onClick={handleNextQuestion}
-                  className="w-full"
-                >
-                  {currentQuestion + 1 === questions.length ? "Finish Quiz" : "Next Question"}
-                </Button>
+                )}
               </div>
             )}
           </Card>
