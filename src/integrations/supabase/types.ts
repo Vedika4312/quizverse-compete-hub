@@ -96,6 +96,7 @@ export type Database = {
       team_members: {
         Row: {
           id: string
+          is_captain: boolean | null
           joined_at: string
           member_name: string
           team_id: string
@@ -103,6 +104,7 @@ export type Database = {
         }
         Insert: {
           id?: string
+          is_captain?: boolean | null
           joined_at?: string
           member_name: string
           team_id: string
@@ -110,6 +112,7 @@ export type Database = {
         }
         Update: {
           id?: string
+          is_captain?: boolean | null
           joined_at?: string
           member_name?: string
           team_id?: string

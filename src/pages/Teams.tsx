@@ -109,6 +109,7 @@ const Teams = () => {
         .insert({
           team_id: team.id,
           member_name: captainName,
+          user_id: userId,
           is_captain: true
         });
 
@@ -121,6 +122,7 @@ const Teams = () => {
           members.map(memberName => ({
             team_id: team.id,
             member_name: memberName,
+            user_id: userId,
             is_captain: false
           }))
         );
