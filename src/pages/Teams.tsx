@@ -86,6 +86,7 @@ const Teams = () => {
     setIsLoading(true);
 
     try {
+      // Insert team first
       const { data: team, error: teamError } = await supabase
         .from('teams')
         .insert({
@@ -102,26 +103,29 @@ const Teams = () => {
         throw teamError;
       }
 
-      const memberPromises = [
-        supabase
-          .from('team_members')
-          .insert({
-            team_id: team.id,
-            user_id: userId,
-            member_name: captainName
-          }),
-        ...members.map(memberName =>
-          supabase
-            .from('team_members')
-            .insert({
-              team_id: team.id,
-              user_id: userId,
-              member_name: memberName
-            })
-        )
-      ];
+      // Insert captain as a team member
+      const { error: captainError } = await supabase
+        .from('team_members')
+        .insert({
+          team_id: team.id,
+          member_name: captainName,
+          is_captain: true
+        });
 
-      await Promise.all(memberPromises);
+      if (captainError) throw captainError;
+
+      // Insert other team members
+      const { error: membersError } = await supabase
+        .from('team_members')
+        .insert(
+          members.map(memberName => ({
+            team_id: team.id,
+            member_name: memberName,
+            is_captain: false
+          }))
+        );
+
+      if (membersError) throw membersError;
 
       setHasTeam(true);
       toast({
