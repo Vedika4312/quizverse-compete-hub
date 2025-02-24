@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +17,14 @@ interface QuizQuestion {
   correct_answer: string;
 }
 
+interface QuizResult {
+  id: string;
+  user_id: string;
+  score: number;
+  total_questions: number;
+  completed_at: string;
+}
+
 const Quiz = () => {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -29,8 +36,37 @@ const Quiz = () => {
   const [answers, setAnswers] = useState<string[]>([]);
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [allResults, setAllResults] = useState<QuizResult[]>([]);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkUserRole = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate('/auth');
+        return;
+      }
+
+      // Check if user is admin
+      const { data, error } = await supabase.rpc('is_admin', { user_id: user.id });
+      if (!error && data) {
+        setIsAdmin(true);
+        // If admin, fetch all quiz results
+        const { data: results, error: resultsError } = await supabase
+          .from('quiz_results')
+          .select('*')
+          .order('completed_at', { ascending: false });
+
+        if (!resultsError && results) {
+          setAllResults(results);
+        }
+      }
+    };
+
+    checkUserRole();
+  }, [navigate]);
 
   const fetchQuestions = async () => {
     try {
@@ -120,7 +156,6 @@ const Quiz = () => {
       }
     }
 
-    // Store the answer
     setAnswers(prev => [...prev, selectedAnswer]);
 
     if (currentQuestion + 1 < questions.length) {
@@ -150,6 +185,18 @@ const Quiz = () => {
         }]);
 
       if (insertError) throw insertError;
+
+      // If user is admin, refresh the results
+      if (isAdmin) {
+        const { data: results, error: resultsError } = await supabase
+          .from('quiz_results')
+          .select('*')
+          .order('completed_at', { ascending: false });
+
+        if (!resultsError && results) {
+          setAllResults(results);
+        }
+      }
 
       toast({
         title: "Quiz Submitted",
@@ -190,6 +237,22 @@ const Quiz = () => {
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-2xl mx-auto">
+          {isAdmin && !quizStarted && (
+            <Card className="p-6 mb-8">
+              <h2 className="text-2xl font-semibold mb-4">Quiz Results (Admin View)</h2>
+              <div className="space-y-4">
+                {allResults.map((result) => (
+                  <div key={result.id} className="p-4 border rounded-lg bg-white">
+                    <p className="font-medium">Score: {result.score}/{result.total_questions}</p>
+                    <p className="text-sm text-gray-600">
+                      Completed: {new Date(result.completed_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+          
           <Card className="p-6">
             {!quizStarted ? (
               <div className="text-center space-y-4">
