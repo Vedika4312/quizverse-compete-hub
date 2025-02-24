@@ -5,6 +5,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import type { PostgrestError } from "@supabase/supabase-js";
+import { Textarea } from "@/components/ui/textarea";
 
 type QuestionType = 'multiple_choice' | 'written';
 
@@ -49,11 +50,9 @@ const Quiz = () => {
         return;
       }
 
-      // Check if user is admin
       const { data, error } = await supabase.rpc('is_admin', { user_id: user.id });
       if (!error && data) {
         setIsAdmin(true);
-        // If admin, fetch all quiz results
         const { data: results, error: resultsError } = await supabase
           .from('quiz_results')
           .select('*')
@@ -186,7 +185,6 @@ const Quiz = () => {
 
       if (insertError) throw insertError;
 
-      // If user is admin, refresh the results
       if (isAdmin) {
         const { data: results, error: resultsError } = await supabase
           .from('quiz_results')
@@ -203,15 +201,12 @@ const Quiz = () => {
         description: "Your responses have been recorded successfully",
       });
 
-      // Reset quiz state
       setQuizStarted(false);
       setQuizCompleted(false);
       setScore(0);
       setAnswers([]);
       
-      // Navigate back to home
       navigate('/');
-
     } catch (error) {
       const e = error as Error | PostgrestError;
       console.error('Error submitting quiz:', e);
@@ -295,12 +290,11 @@ const Quiz = () => {
                             </Button>
                           ))
                         ) : (
-                          <input
-                            type="text"
+                          <Textarea
                             value={selectedAnswer || ''}
                             onChange={(e) => setSelectedAnswer(e.target.value)}
-                            placeholder="Type your answer"
-                            className="w-full p-2 border rounded-md"
+                            placeholder="Type your answer here..."
+                            className="min-h-[150px] resize-y"
                           />
                         )}
                       </div>
