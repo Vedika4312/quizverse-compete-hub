@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -275,7 +276,9 @@ const Quiz = () => {
                     </div>
 
                     <div className="space-y-4">
-                      <p className="text-lg">{questions[currentQuestion].question}</p>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <p className="text-lg whitespace-pre-wrap">{questions[currentQuestion].question}</p>
+                      </div>
                       
                       <div className="space-y-2">
                         {questions[currentQuestion].question_type === 'multiple_choice' ? (
@@ -283,10 +286,10 @@ const Quiz = () => {
                             <Button
                               key={index}
                               variant={selectedAnswer === index.toString() ? "default" : "outline"}
-                              className="w-full justify-start text-left"
+                              className="w-full justify-start text-left min-h-[44px] whitespace-pre-wrap"
                               onClick={() => setSelectedAnswer(index.toString())}
                             >
-                              {option}
+                              <span className="inline-block">{option}</span>
                             </Button>
                           ))
                         ) : (
@@ -294,7 +297,7 @@ const Quiz = () => {
                             value={selectedAnswer || ''}
                             onChange={(e) => setSelectedAnswer(e.target.value)}
                             placeholder="Type your answer here..."
-                            className="min-h-[150px] resize-y"
+                            className="min-h-[200px] resize-y text-base p-4"
                           />
                         )}
                       </div>
