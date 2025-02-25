@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -281,11 +282,12 @@ const Admin = () => {
               ) : (
                 <div className="space-y-2">
                   <Label htmlFor="writtenAnswer">Correct Answer</Label>
-                  <Input
+                  <Textarea
                     id="writtenAnswer"
                     value={writtenAnswer}
                     onChange={(e) => setWrittenAnswer(e.target.value)}
                     placeholder="Enter the correct answer"
+                    className="min-h-[150px] resize-y"
                   />
                 </div>
               )}
@@ -315,9 +317,12 @@ const Admin = () => {
                             </p>
                           ))
                         ) : (
-                          <p className="text-green-600 font-medium">
-                            Correct Answer: {q.correct_answer}
-                          </p>
+                          <div className="mt-2 space-y-2">
+                            <Label>Correct Answer:</Label>
+                            <div className="bg-gray-50 p-3 rounded-md whitespace-pre-wrap text-green-600 font-medium">
+                              {q.correct_answer}
+                            </div>
+                          </div>
                         )}
                       </div>
                       <p className="text-sm text-gray-500">Time Limit: {q.time_limit} seconds</p>
