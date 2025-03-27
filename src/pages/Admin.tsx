@@ -19,8 +19,8 @@ type DatabaseQuizQuestion = Database["public"]["Tables"]["quiz_questions"]["Row"
 interface QuizQuestion extends Omit<DatabaseQuizQuestion, 'options'> {
   options: string[];
   question_type: QuestionType;
-  has_compiler?: boolean;
-  compiler_language?: string;
+  has_compiler: boolean | null;
+  compiler_language: string | null;
 }
 
 const Admin = () => {
