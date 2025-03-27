@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -13,8 +12,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CodeCompiler from "@/components/CodeCompiler";
-
-type QuestionType = 'multiple_choice' | 'written';
+import type { QuestionType } from "@/types/quiz";
 
 type DatabaseQuizQuestion = Database["public"]["Tables"]["quiz_questions"]["Row"];
 
@@ -90,7 +88,6 @@ const Admin = () => {
           options: q.options as string[],
           question_type: (q.question_type || 'multiple_choice') as QuestionType,
           time_limit: q.time_limit || 30,
-          correct_answer: q.correct_answer,
           has_compiler: q.has_compiler as boolean || false,
           compiler_language: q.compiler_language as string || 'javascript'
         }));
@@ -182,7 +179,7 @@ const Admin = () => {
 
       const { error } = await supabase
         .from('quiz_questions')
-        .insert(newQuestion as DatabaseQuizQuestion);
+        .insert(newQuestion);
 
       if (error) throw error;
 

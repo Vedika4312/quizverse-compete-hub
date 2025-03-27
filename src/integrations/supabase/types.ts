@@ -38,9 +38,11 @@ export type Database = {
       }
       quiz_questions: {
         Row: {
+          compiler_language: string | null
           correct_answer: string
           created_at: string
           created_by: string
+          has_compiler: boolean | null
           id: string
           options: Json
           question: string
@@ -48,9 +50,11 @@ export type Database = {
           time_limit: number
         }
         Insert: {
+          compiler_language?: string | null
           correct_answer: string
           created_at?: string
           created_by: string
+          has_compiler?: boolean | null
           id?: string
           options: Json
           question: string
@@ -58,9 +62,11 @@ export type Database = {
           time_limit?: number
         }
         Update: {
+          compiler_language?: string | null
           correct_answer?: string
           created_at?: string
           created_by?: string
+          has_compiler?: boolean | null
           id?: string
           options?: Json
           question?: string

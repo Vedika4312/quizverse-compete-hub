@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,27 +7,7 @@ import { useNavigate } from "react-router-dom";
 import type { PostgrestError } from "@supabase/supabase-js";
 import { Textarea } from "@/components/ui/textarea";
 import CodeCompiler from "@/components/CodeCompiler";
-
-type QuestionType = 'multiple_choice' | 'written';
-
-interface QuizQuestion {
-  id: string;
-  question: string;
-  options: string[];
-  question_type: QuestionType;
-  time_limit: number;
-  correct_answer: string;
-  has_compiler?: boolean;
-  compiler_language?: string;
-}
-
-interface QuizResult {
-  id: string;
-  user_id: string;
-  score: number;
-  total_questions: number;
-  completed_at: string;
-}
+import type { QuizQuestion, QuizResult } from "@/types/quiz";
 
 const Quiz = () => {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -83,7 +62,7 @@ const Quiz = () => {
         const transformedQuestions: QuizQuestion[] = data.map(q => ({
           ...q,
           options: q.options as string[],
-          question_type: (q.question_type || 'multiple_choice') as QuestionType,
+          question_type: (q.question_type || 'multiple_choice') as QuizQuestion['question_type'],
           time_limit: q.time_limit || 30,
           correct_answer: q.correct_answer,
           has_compiler: q.has_compiler as boolean || false,
