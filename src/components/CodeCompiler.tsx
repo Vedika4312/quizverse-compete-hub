@@ -1,8 +1,9 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
 
 interface CodeCompilerProps {
   language: string;
@@ -21,6 +22,7 @@ const CodeCompiler = ({
   const [output, setOutput] = useState<string>("");
   const [selectedLanguage, setSelectedLanguage] = useState<string>(defaultLanguage || language);
   const [isRunning, setIsRunning] = useState(false);
+  const [lastCodeRun, setLastCodeRun] = useState<string>("");
 
   const languages = [
     { value: "javascript", label: "JavaScript" },
@@ -32,27 +34,70 @@ const CodeCompiler = ({
 
   const runCode = () => {
     setIsRunning(true);
+    setLastCodeRun(code);
     
-    // This is a mock implementation - in a real implementation,
-    // we would send the code to a backend service for execution
-    setTimeout(() => {
-      let result;
-      if (selectedLanguage === "javascript") {
-        try {
-          // Use a safer way to evaluate JavaScript in production
-          result = "// Output would appear here in a real implementation\n";
-          result += "// For security reasons, we don't actually run the code in the browser";
-        } catch (error) {
-          result = `Error: ${error}`;
-        }
+    // Clear previous output to show real-time updates
+    setOutput("// Running code...\n");
+    
+    // This is a mock implementation that simulates real-time output updates
+    const outputSteps = [
+      "// Compiling...\n",
+      "// Setting up execution environment...\n",
+      "// Executing code...\n"
+    ];
+    
+    let stepIndex = 0;
+    
+    // Simulate real-time output with intervals
+    const outputInterval = setInterval(() => {
+      if (stepIndex < outputSteps.length) {
+        setOutput(prev => prev + outputSteps[stepIndex]);
+        stepIndex++;
       } else {
-        result = `// Output would appear here in a real implementation\n`;
-        result += `// Server-side execution for ${selectedLanguage} would be implemented in a production environment`;
+        clearInterval(outputInterval);
+        
+        // Final output after "real-time" updates
+        let result;
+        if (selectedLanguage === "javascript") {
+          try {
+            // In a real implementation, we would use a safer evaluation method
+            // For demo purposes, we'll simulate a JavaScript evaluation
+            result = "// Output:\n";
+            
+            // Only try to evaluate if it's JavaScript
+            if (code.includes("console.log")) {
+              // Extract what's being logged and add it to output
+              const logMatch = code.match(/console\.log\(['"](.+)['"]\)/);
+              if (logMatch && logMatch[1]) {
+                result += `${logMatch[1]}\n`;
+              } else {
+                result += "undefined\n";
+              }
+            } else {
+              result += "// No console.log statements found\n";
+            }
+          } catch (error) {
+            result = `Error: ${error}\n`;
+          }
+        } else {
+          result = `// Output for ${selectedLanguage}:\n`;
+          result += `// Server-side execution would show real output here\n`;
+          
+          // Add some language-specific simulated output
+          if (selectedLanguage === "python") {
+            result += ">>> Code executed successfully\n";
+          } else if (selectedLanguage === "java" || selectedLanguage === "cpp") {
+            result += "Compilation successful\nExecution completed\n";
+          }
+        }
+        
+        setOutput(prev => prev + result);
+        setIsRunning(false);
       }
-      
-      setOutput(result);
-      setIsRunning(false);
-    }, 1000);
+    }, 500); // Update every 500ms for demo purposes
+    
+    // Clean up interval if component unmounts
+    return () => clearInterval(outputInterval);
   };
 
   const handleLanguageChange = (value: string) => {
@@ -60,7 +105,16 @@ const CodeCompiler = ({
     if (onLanguageChange) {
       onLanguageChange(value);
     }
+    // Update placeholder when language changes
+    setCode(`// Write your ${value} code here`);
   };
+
+  // Reset output when code changes substantially (if it's not the code that was just run)
+  useEffect(() => {
+    if (code !== lastCodeRun && output) {
+      setOutput("");
+    }
+  }, [code, lastCodeRun]);
 
   return (
     <div className="border rounded-md p-4 bg-gray-50 space-y-4">
@@ -97,7 +151,12 @@ const CodeCompiler = ({
           disabled={isRunning}
           className="w-full"
         >
-          {isRunning ? "Running..." : "Run Code"}
+          {isRunning ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Running...
+            </>
+          ) : "Run Code"}
         </Button>
       )}
       

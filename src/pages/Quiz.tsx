@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -120,27 +121,22 @@ const Quiz = () => {
   };
 
   const handleNextQuestion = useCallback(() => {
+    // Add to answers array - for skipped questions, use null or "skipped"
     if (!selectedAnswer) {
-      toast({
-        title: "Select an Answer",
-        description: "Please select an answer before proceeding",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const currentQ = questions[currentQuestion];
-    if (currentQ.question_type === 'multiple_choice') {
-      if (selectedAnswer === currentQ.correct_answer) {
-        setScore(prev => prev + 1);
-      }
+      setAnswers(prev => [...prev, "skipped"]);
     } else {
-      if (selectedAnswer.toLowerCase() === currentQ.correct_answer.toLowerCase()) {
-        setScore(prev => prev + 1);
+      const currentQ = questions[currentQuestion];
+      if (currentQ.question_type === 'multiple_choice') {
+        if (selectedAnswer === currentQ.correct_answer) {
+          setScore(prev => prev + 1);
+        }
+      } else {
+        if (selectedAnswer.toLowerCase() === currentQ.correct_answer.toLowerCase()) {
+          setScore(prev => prev + 1);
+        }
       }
+      setAnswers(prev => [...prev, selectedAnswer]);
     }
-
-    setAnswers(prev => [...prev, selectedAnswer]);
 
     if (currentQuestion + 1 < questions.length) {
       setCurrentQuestion(currentQuestion + 1);
@@ -149,7 +145,20 @@ const Quiz = () => {
     } else {
       setQuizCompleted(true);
     }
-  }, [currentQuestion, questions, selectedAnswer, toast]);
+  }, [currentQuestion, questions, selectedAnswer]);
+  
+  const handleSkipQuestion = () => {
+    // Simply move to next question without checking answer
+    setAnswers(prev => [...prev, "skipped"]);
+    
+    if (currentQuestion + 1 < questions.length) {
+      setCurrentQuestion(currentQuestion + 1);
+      setSelectedAnswer(null);
+      setTimeRemaining(questions[currentQuestion + 1].time_limit);
+    } else {
+      setQuizCompleted(true);
+    }
+  };
 
   const handleSubmitQuiz = async () => {
     try {
@@ -296,12 +305,23 @@ const Quiz = () => {
                       </div>
                     </div>
 
-                    <Button 
-                      onClick={handleNextQuestion}
-                      className="w-full"
-                    >
-                      {currentQuestion + 1 === questions.length ? "Finish Quiz" : "Next Question"}
-                    </Button>
+                    <div className="flex gap-3">
+                      <Button 
+                        onClick={handleNextQuestion}
+                        className="w-full"
+                        variant="default"
+                      >
+                        {currentQuestion + 1 === questions.length ? "Finish Quiz" : "Next Question"}
+                      </Button>
+                      
+                      <Button 
+                        onClick={handleSkipQuestion}
+                        className="w-1/3"
+                        variant="secondary"
+                      >
+                        Skip
+                      </Button>
+                    </div>
                   </>
                 ) : (
                   <div className="text-center space-y-4">
