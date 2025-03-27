@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -9,6 +8,7 @@ import type { PostgrestError } from "@supabase/supabase-js";
 import { Textarea } from "@/components/ui/textarea";
 import CodeCompiler from "@/components/CodeCompiler";
 import type { QuizQuestion, QuizResult } from "@/types/quiz";
+import { AlertTriangle } from "lucide-react";
 
 const Quiz = () => {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -23,6 +23,8 @@ const Quiz = () => {
   const [submitting, setSubmitting] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [allResults, setAllResults] = useState<QuizResult[]>([]);
+  const [visibilityWarnings, setVisibilityWarnings] = useState(0);
+  const [isHidden, setIsHidden] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -103,6 +105,40 @@ const Quiz = () => {
     return () => clearInterval(timer);
   }, [quizStarted, timeRemaining]);
 
+  useEffect(() => {
+    if (!quizStarted || quizCompleted) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setIsHidden(true);
+        setVisibilityWarnings(prev => prev + 1);
+        
+        toast({
+          title: "Warning!",
+          description: `Do not leave the quiz tab! Warning ${visibilityWarnings + 1}/${maxVisibilityWarnings}`,
+          variant: "destructive",
+        });
+        
+        if (visibilityWarnings + 1 >= maxVisibilityWarnings) {
+          toast({
+            title: "Quiz Terminated",
+            description: "You have exceeded the maximum number of tab switches. Your quiz has been submitted.",
+            variant: "destructive",
+          });
+          setQuizCompleted(true);
+        }
+      } else {
+        setIsHidden(false);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [quizStarted, quizCompleted, visibilityWarnings, toast]);
+
   const handleStartQuiz = () => {
     if (questions.length === 0) {
       toast({
@@ -112,6 +148,10 @@ const Quiz = () => {
       });
       return;
     }
+    
+    setVisibilityWarnings(0);
+    setIsHidden(false);
+    
     setQuizStarted(true);
     setCurrentQuestion(0);
     setScore(0);
@@ -121,7 +161,6 @@ const Quiz = () => {
   };
 
   const handleNextQuestion = useCallback(() => {
-    // Add to answers array - for skipped questions, use null or "skipped"
     if (!selectedAnswer) {
       setAnswers(prev => [...prev, "skipped"]);
     } else {
@@ -148,7 +187,6 @@ const Quiz = () => {
   }, [currentQuestion, questions, selectedAnswer]);
   
   const handleSkipQuestion = () => {
-    // Simply move to next question without checking answer
     setAnswers(prev => [...prev, "skipped"]);
     
     if (currentQuestion + 1 < questions.length) {
@@ -247,6 +285,18 @@ const Quiz = () => {
               <div className="text-center space-y-4">
                 <h2 className="text-2xl font-semibold">Welcome to the Quiz!</h2>
                 <p className="text-gray-600">Test your knowledge with our quiz questions.</p>
+                <div className="bg-amber-50 border border-amber-200 rounded-md p-4 mb-4">
+                  <div className="flex items-start">
+                    <AlertTriangle className="w-5 h-5 text-amber-500 mr-2 mt-0.5" />
+                    <div>
+                      <h3 className="text-sm font-medium text-amber-800">Important Notice</h3>
+                      <p className="text-sm text-amber-700 mt-1">
+                        Please do not leave this tab or window during the quiz. Switching to another tab 
+                        {maxVisibilityWarnings} times will result in automatic submission of your quiz.
+                      </p>
+                    </div>
+                  </div>
+                </div>
                 <Button onClick={handleStartQuiz} className="w-full">
                   Start Quiz
                 </Button>
@@ -255,6 +305,14 @@ const Quiz = () => {
               <div className="space-y-6">
                 {!quizCompleted ? (
                   <>
+                    {isHidden && (
+                      <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4 animate-pulse">
+                        <p className="text-red-600 font-medium">
+                          Warning: Please return to the quiz tab! ({visibilityWarnings}/{maxVisibilityWarnings})
+                        </p>
+                      </div>
+                    )}
+                    
                     <div className="flex justify-between items-center">
                       <h3 className="text-lg font-medium">
                         Question {currentQuestion + 1} of {questions.length}
