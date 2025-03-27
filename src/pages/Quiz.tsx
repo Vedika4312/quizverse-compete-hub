@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import type { PostgrestError } from "@supabase/supabase-js";
 import { Textarea } from "@/components/ui/textarea";
+import CodeCompiler from "@/components/CodeCompiler";
 
 type QuestionType = 'multiple_choice' | 'written';
 
@@ -17,6 +18,8 @@ interface QuizQuestion {
   question_type: QuestionType;
   time_limit: number;
   correct_answer: string;
+  has_compiler?: boolean;
+  compiler_language?: string;
 }
 
 interface QuizResult {
@@ -82,7 +85,9 @@ const Quiz = () => {
           options: q.options as string[],
           question_type: (q.question_type || 'multiple_choice') as QuestionType,
           time_limit: q.time_limit || 30,
-          correct_answer: q.correct_answer
+          correct_answer: q.correct_answer,
+          has_compiler: q.has_compiler as boolean || false,
+          compiler_language: q.compiler_language as string || 'javascript'
         }));
         setQuestions(transformedQuestions);
       }
@@ -279,6 +284,15 @@ const Quiz = () => {
                       <div className="bg-gray-50 p-4 rounded-lg">
                         <p className="text-lg whitespace-pre-wrap">{questions[currentQuestion].question}</p>
                       </div>
+                      
+                      {questions[currentQuestion].has_compiler && (
+                        <div className="mb-4">
+                          <CodeCompiler 
+                            language={questions[currentQuestion].compiler_language || "javascript"}
+                            readOnly={false}
+                          />
+                        </div>
+                      )}
                       
                       <div className="space-y-2">
                         {questions[currentQuestion].question_type === 'multiple_choice' ? (
