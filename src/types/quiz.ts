@@ -19,3 +19,8 @@ export interface QuizResult {
   total_questions: number;
   completed_at: string;
 }
+
+export interface QuizSettings {
+  id: number;
+  overall_time_limit: number | null;
+}

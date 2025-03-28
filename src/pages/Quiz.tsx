@@ -9,7 +9,7 @@ import type { PostgrestError } from "@supabase/supabase-js";
 import { Textarea } from "@/components/ui/textarea";
 import CodeCompiler from "@/components/CodeCompiler";
 import type { QuizQuestion, QuizResult } from "@/types/quiz";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, AlarmClock } from "lucide-react";
 
 // Maximum number of allowed tab switches before the quiz auto-submits
 const MAX_VISIBILITY_WARNINGS = 3;
@@ -22,6 +22,7 @@ const Quiz = () => {
   const [quizStarted, setQuizStarted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const [overallTimeRemaining, setOverallTimeRemaining] = useState<number | null>(null);
   const [answers, setAnswers] = useState<string[]>([]);
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -89,10 +90,30 @@ const Quiz = () => {
     }
   };
 
+  const fetchQuizSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('quiz_settings')
+        .select('*')
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data && data.overall_time_limit) {
+        // Convert minutes to seconds for the timer
+        setOverallTimeRemaining(data.overall_time_limit * 60);
+      }
+    } catch (error) {
+      console.error('Error fetching quiz settings:', error);
+    }
+  };
+
   useEffect(() => {
     fetchQuestions();
+    fetchQuizSettings();
   }, []);
 
+  // Question timer
   useEffect(() => {
     if (!quizStarted || timeRemaining === null) return;
 
@@ -108,6 +129,30 @@ const Quiz = () => {
 
     return () => clearInterval(timer);
   }, [quizStarted, timeRemaining]);
+
+  // Overall quiz timer
+  useEffect(() => {
+    if (!quizStarted || overallTimeRemaining === null || quizCompleted) return;
+
+    const timer = setInterval(() => {
+      setOverallTimeRemaining(prev => {
+        if (prev === null || prev <= 0) {
+          // Auto-submit quiz when overall time runs out
+          setQuizCompleted(true);
+          clearInterval(timer);
+          toast({
+            title: "Time's up!",
+            description: "The quiz time limit has been reached.",
+            variant: "destructive",
+          });
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [quizStarted, overallTimeRemaining, quizCompleted, toast]);
 
   useEffect(() => {
     if (!quizStarted || quizCompleted) return;
@@ -256,6 +301,12 @@ const Quiz = () => {
     }
   };
 
+  const formatTime = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 flex items-center justify-center">
@@ -321,13 +372,24 @@ const Quiz = () => {
                       <h3 className="text-lg font-medium">
                         Question {currentQuestion + 1} of {questions.length}
                       </h3>
-                      {timeRemaining !== null && (
-                        <span className={`text-sm font-medium px-3 py-1 rounded-full ${
-                          timeRemaining <= 10 ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-primary/10'
-                        }`}>
-                          Time: {timeRemaining}s
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {timeRemaining !== null && (
+                          <span className={`text-sm font-medium px-3 py-1 rounded-full ${
+                            timeRemaining <= 10 ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-primary/10'
+                          }`}>
+                            Question: {timeRemaining}s
+                          </span>
+                        )}
+                        
+                        {overallTimeRemaining !== null && (
+                          <span className={`text-sm font-medium px-3 py-1 rounded-full flex items-center ${
+                            overallTimeRemaining <= 60 ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-blue-100 text-blue-600'
+                          }`}>
+                            <AlarmClock className="w-4 h-4 mr-1" />
+                            Quiz: {formatTime(overallTimeRemaining)}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="space-y-4">

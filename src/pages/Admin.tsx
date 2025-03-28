@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Trash2, Clock } from "lucide-react";
+import { Trash2, Clock, AlarmClock } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -41,6 +41,10 @@ interface QuizQuestion extends Omit<DatabaseQuizQuestion, 'options'> {
   compiler_language: string | null;
 }
 
+interface QuizSettings {
+  overall_time_limit: number | null;
+}
+
 const Admin = () => {
   const [question, setQuestion] = useState("");
   const [options, setOptions] = useState(["", "", "", ""]);
@@ -56,6 +60,9 @@ const Admin = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [questionToDelete, setQuestionToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [overallTimeLimit, setOverallTimeLimit] = useState<number | null>(null);
+  const [quizSettings, setQuizSettings] = useState<QuizSettings>({ overall_time_limit: null });
+  const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -83,6 +90,7 @@ const Admin = () => {
 
         setIsAdmin(true);
         fetchQuestions();
+        fetchQuizSettings();
       } catch (error) {
         console.error('Error checking admin status:', error);
         navigate('/');
@@ -121,6 +129,60 @@ const Admin = () => {
         description: "Failed to fetch existing questions",
         variant: "destructive",
       });
+    }
+  };
+
+  const fetchQuizSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('quiz_settings')
+        .select('*')
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setQuizSettings(data);
+        setOverallTimeLimit(data.overall_time_limit);
+      }
+    } catch (error) {
+      console.error('Error fetching quiz settings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch quiz settings",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updateQuizSettings = async () => {
+    try {
+      setIsUpdatingSettings(true);
+      
+      const { data, error } = await supabase
+        .from('quiz_settings')
+        .upsert({
+          id: quizSettings.id || 1,
+          overall_time_limit: overallTimeLimit
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Quiz settings updated successfully",
+      });
+      
+      fetchQuizSettings();
+    } catch (error) {
+      console.error('Error updating quiz settings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update quiz settings",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingSettings(false);
     }
   };
 
@@ -283,6 +345,44 @@ const Admin = () => {
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-4xl mx-auto space-y-8">
+          {/* Global Quiz Settings Card */}
+          <Card className="p-6 animate-slideIn">
+            <h2 className="text-2xl font-semibold mb-6">Quiz Settings</h2>
+            <div className="space-y-4">
+              <div className="flex flex-col space-y-2">
+                <Label htmlFor="overallTimeLimit" className="flex items-center">
+                  <AlarmClock className="h-5 w-5 mr-2 text-primary" />
+                  Overall Quiz Time Limit (minutes)
+                </Label>
+                <div className="flex items-center space-x-4">
+                  <Input
+                    id="overallTimeLimit"
+                    type="number"
+                    min="1"
+                    max="120"
+                    placeholder="Enter time in minutes"
+                    value={overallTimeLimit || ''}
+                    onChange={(e) => setOverallTimeLimit(e.target.value ? Number(e.target.value) : null)}
+                    className="w-32"
+                  />
+                  <span className="text-sm text-gray-500">
+                    {overallTimeLimit ? `${overallTimeLimit} minutes for the entire quiz` : 'No overall time limit (per-question limits apply)'}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-500 mt-1">
+                  Set an overall time limit for the entire quiz. Leave empty to use only per-question time limits.
+                </p>
+              </div>
+              <Button 
+                onClick={updateQuizSettings} 
+                disabled={isUpdatingSettings}
+                className="mt-2"
+              >
+                {isUpdatingSettings ? "Updating..." : "Update Quiz Settings"}
+              </Button>
+            </div>
+          </Card>
+
           <Card className="p-6 animate-slideIn">
             <h2 className="text-2xl font-semibold mb-6">Add Quiz Question</h2>
             
