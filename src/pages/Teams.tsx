@@ -10,7 +10,8 @@ const Teams = () => {
   const [formData, setFormData] = useState<TeamFormData>({
     teamName: "",
     captainName: "",
-    members: ["", "", ""]
+    captainEmail: "",
+    members: []
   });
   const [isLoading, setIsLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -55,20 +56,52 @@ const Teams = () => {
     checkAuth();
   }, [navigate, toast]);
 
-  const handleMemberChange = (index: number, value: string) => {
+  const handleMemberNameChange = (index: number, value: string) => {
     const newMembers = [...formData.members];
-    newMembers[index] = value;
+    newMembers[index] = { ...newMembers[index], name: value };
+    setFormData(prev => ({ ...prev, members: newMembers }));
+  };
+
+  const handleMemberEmailChange = (index: number, value: string) => {
+    const newMembers = [...formData.members];
+    newMembers[index] = { ...newMembers[index], email: value };
+    setFormData(prev => ({ ...prev, members: newMembers }));
+  };
+
+  const handleAddMember = () => {
+    if (formData.members.length < 2) {
+      setFormData(prev => ({
+        ...prev,
+        members: [...prev.members, { name: "", email: "" }]
+      }));
+    }
+  };
+
+  const handleRemoveMember = (index: number) => {
+    const newMembers = [...formData.members];
+    newMembers.splice(index, 1);
     setFormData(prev => ({ ...prev, members: newMembers }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { teamName, captainName, members } = formData;
+    const { teamName, captainName, captainEmail, members } = formData;
 
-    if (!teamName || !captainName || members.some(member => !member)) {
+    // Validate team name and captain info
+    if (!teamName || !captainName || !captainEmail) {
       toast({
         title: "Error",
-        description: "Please fill in all fields including team name, captain name, and member names",
+        description: "Please fill in all required fields including team name, captain name, and captain email",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate members (if any)
+    if (members.some(member => member.name && !member.email || !member.name && member.email)) {
+      toast({
+        title: "Error",
+        description: "Please provide both name and email for each team member",
         variant: "destructive",
       });
       return;
@@ -115,19 +148,25 @@ const Teams = () => {
 
       if (captainError) throw captainError;
 
-      // Insert other team members
-      const { error: membersError } = await supabase
-        .from('team_members')
-        .insert(
-          members.map(memberName => ({
-            team_id: team.id,
-            member_name: memberName,
-            user_id: userId,
-            is_captain: false
-          }))
-        );
+      // Insert other team members if they exist
+      if (members.length > 0) {
+        const validMembers = members.filter(member => member.name && member.email);
+        
+        if (validMembers.length > 0) {
+          const { error: membersError } = await supabase
+            .from('team_members')
+            .insert(
+              validMembers.map(member => ({
+                team_id: team.id,
+                member_name: member.name,
+                user_id: userId,
+                is_captain: false
+              }))
+            );
 
-      if (membersError) throw membersError;
+          if (membersError) throw membersError;
+        }
+      }
 
       setHasTeam(true);
       toast({
@@ -163,7 +202,11 @@ const Teams = () => {
             onSubmit={handleSubmit}
             onTeamNameChange={(value) => setFormData(prev => ({ ...prev, teamName: value }))}
             onCaptainNameChange={(value) => setFormData(prev => ({ ...prev, captainName: value }))}
-            onMemberChange={handleMemberChange}
+            onCaptainEmailChange={(value) => setFormData(prev => ({ ...prev, captainEmail: value }))}
+            onMemberNameChange={handleMemberNameChange}
+            onMemberEmailChange={handleMemberEmailChange}
+            onAddMember={handleAddMember}
+            onRemoveMember={handleRemoveMember}
           />
         </div>
       </div>
