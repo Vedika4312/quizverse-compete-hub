@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -7,12 +8,29 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Trash2 } from "lucide-react";
+import { Trash2, Clock } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CodeCompiler from "@/components/CodeCompiler";
 import type { QuestionType } from "@/types/quiz";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription,
+  DialogFooter,
+  DialogClose
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 type DatabaseQuizQuestion = Database["public"]["Tables"]["quiz_questions"]["Row"];
 
@@ -35,6 +53,9 @@ const Admin = () => {
   const [existingQuestions, setExistingQuestions] = useState<QuizQuestion[]>([]);
   const [hasCompiler, setHasCompiler] = useState(false);
   const [compilerLanguage, setCompilerLanguage] = useState("javascript");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [questionToDelete, setQuestionToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -109,12 +130,20 @@ const Admin = () => {
     setOptions(newOptions);
   };
 
-  const handleDelete = async (questionId: string) => {
+  const confirmDelete = (questionId: string) => {
+    setQuestionToDelete(questionId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!questionToDelete) return;
+    
     try {
+      setIsDeleting(true);
       const { error } = await supabase
         .from('quiz_questions')
         .delete()
-        .eq('id', questionId);
+        .eq('id', questionToDelete);
 
       if (error) throw error;
 
@@ -124,6 +153,7 @@ const Admin = () => {
       });
       
       fetchQuestions();
+      setDeleteDialogOpen(false);
     } catch (error) {
       console.error('Error deleting question:', error);
       toast({
@@ -131,6 +161,9 @@ const Admin = () => {
         description: "Failed to delete question",
         variant: "destructive",
       });
+    } finally {
+      setIsDeleting(false);
+      setQuestionToDelete(null);
     }
   };
 
@@ -204,6 +237,31 @@ const Admin = () => {
       toast({
         title: "Error",
         description: "Failed to add question. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updateQuestionTimeLimit = async (questionId: string, newTimeLimit: number) => {
+    try {
+      const { error } = await supabase
+        .from('quiz_questions')
+        .update({ time_limit: newTimeLimit })
+        .eq('id', questionId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Time limit updated successfully",
+      });
+      
+      fetchQuestions();
+    } catch (error) {
+      console.error('Error updating time limit:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update time limit",
         variant: "destructive",
       });
     }
@@ -353,56 +411,95 @@ const Admin = () => {
           <Card className="p-6">
             <h2 className="text-2xl font-semibold mb-6">Existing Questions</h2>
             <div className="space-y-4">
-              {existingQuestions.map((q, index) => (
-                <Card key={q.id} className="p-4 border">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-2 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">Question {index + 1}: {q.question}</p>
-                        <span className="text-sm text-gray-500">({q.question_type})</span>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50%]">Question</TableHead>
+                    <TableHead className="text-center">Type</TableHead>
+                    <TableHead className="text-center">Time Limit</TableHead>
+                    <TableHead className="text-center">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {existingQuestions.map((q) => (
+                    <TableRow key={q.id}>
+                      <TableCell className="font-medium truncate max-w-xs">
+                        {q.question}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          {q.question_type}
+                        </span>
                         {q.has_compiler && (
-                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                            Code Compiler: {q.compiler_language}
+                          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {q.compiler_language}
                           </span>
                         )}
-                      </div>
-                      <div className="pl-4 space-y-1">
-                        {q.question_type === 'multiple_choice' ? (
-                          q.options.map((option, optIndex) => (
-                            <p key={optIndex} className={optIndex.toString() === q.correct_answer ? "text-green-600 font-medium" : "text-gray-600"}>
-                              {optIndex + 1}. {option} {optIndex.toString() === q.correct_answer && " (Correct)"}
-                            </p>
-                          ))
-                        ) : (
-                          <div className="mt-2 space-y-2">
-                            <Label>Correct Answer:</Label>
-                            <div className="bg-gray-50 p-3 rounded-md whitespace-pre-wrap text-green-600 font-medium">
-                              {q.correct_answer}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-500">Time Limit: {q.time_limit} seconds</p>
-                    </div>
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      onClick={() => handleDelete(q.id)}
-                      className="ml-4"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </Card>
-              ))}
-              
-              {existingQuestions.length === 0 && (
-                <p className="text-gray-500 text-center">No questions added yet</p>
-              )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <Input
+                            type="number"
+                            min="5"
+                            max="300"
+                            className="w-20 text-center"
+                            value={q.time_limit}
+                            onChange={(e) => {
+                              const newTimeLimit = Number(e.target.value);
+                              if (newTimeLimit >= 5 && newTimeLimit <= 300) {
+                                updateQuestionTimeLimit(q.id, newTimeLimit);
+                              }
+                            }}
+                          />
+                          <span className="text-xs text-gray-500">sec</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                          onClick={() => confirmDelete(q.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  
+                  {existingQuestions.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-6 text-gray-500">
+                        No questions added yet
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
           </Card>
         </div>
       </div>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Deletion</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this question? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting ? "Deleting..." : "Delete Question"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
