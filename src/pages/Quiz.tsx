@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import CodeCompiler from "@/components/CodeCompiler";
 import type { QuizQuestion, QuizResult } from "@/types/quiz";
 import { AlertTriangle } from "lucide-react";
+
+// Maximum number of allowed tab switches before the quiz auto-submits
+const MAX_VISIBILITY_WARNINGS = 3;
 
 const Quiz = () => {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -115,11 +119,11 @@ const Quiz = () => {
         
         toast({
           title: "Warning!",
-          description: `Do not leave the quiz tab! Warning ${visibilityWarnings + 1}/${maxVisibilityWarnings}`,
+          description: `Do not leave the quiz tab! Warning ${visibilityWarnings + 1}/${MAX_VISIBILITY_WARNINGS}`,
           variant: "destructive",
         });
         
-        if (visibilityWarnings + 1 >= maxVisibilityWarnings) {
+        if (visibilityWarnings + 1 >= MAX_VISIBILITY_WARNINGS) {
           toast({
             title: "Quiz Terminated",
             description: "You have exceeded the maximum number of tab switches. Your quiz has been submitted.",
@@ -292,7 +296,7 @@ const Quiz = () => {
                       <h3 className="text-sm font-medium text-amber-800">Important Notice</h3>
                       <p className="text-sm text-amber-700 mt-1">
                         Please do not leave this tab or window during the quiz. Switching to another tab 
-                        {maxVisibilityWarnings} times will result in automatic submission of your quiz.
+                        {MAX_VISIBILITY_WARNINGS} times will result in automatic submission of your quiz.
                       </p>
                     </div>
                   </div>
@@ -308,7 +312,7 @@ const Quiz = () => {
                     {isHidden && (
                       <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4 animate-pulse">
                         <p className="text-red-600 font-medium">
-                          Warning: Please return to the quiz tab! ({visibilityWarnings}/{maxVisibilityWarnings})
+                          Warning: Please return to the quiz tab! ({visibilityWarnings}/{MAX_VISIBILITY_WARNINGS})
                         </p>
                       </div>
                     )}
