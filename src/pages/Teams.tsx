@@ -153,18 +153,22 @@ const Teams = () => {
         const validMembers = members.filter(member => member.name && member.email);
         
         if (validMembers.length > 0) {
-          const { error: membersError } = await supabase
-            .from('team_members')
-            .insert(
-              validMembers.map(member => ({
+          // Insert each member individually to avoid batch insert issues
+          for (const member of validMembers) {
+            const { error: memberError } = await supabase
+              .from('team_members')
+              .insert({
                 team_id: team.id,
                 member_name: member.name,
                 user_id: userId,
                 is_captain: false
-              }))
-            );
-
-          if (membersError) throw membersError;
+              });
+            
+            if (memberError) {
+              console.error('Error adding team member:', memberError);
+              // Continue adding other members even if one fails
+            }
+          }
         }
       }
 
