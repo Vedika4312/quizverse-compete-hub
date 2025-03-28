@@ -23,6 +23,20 @@ const Auth = () => {
 
     try {
       if (isSignUp) {
+        // First check if username is already taken
+        if (username.trim()) {
+          const { data: existingUser } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('username', username)
+            .maybeSingle();
+          
+          if (existingUser) {
+            throw new Error("Username is already taken. Please choose a different username.");
+          }
+        }
+
+        // If username is unique, proceed with signup
         const { error } = await supabase.auth.signUp({
           email,
           password,
