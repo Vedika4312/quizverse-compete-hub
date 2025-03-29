@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,7 @@ import type { PostgrestError } from "@supabase/supabase-js";
 import { Textarea } from "@/components/ui/textarea";
 import CodeCompiler from "@/components/CodeCompiler";
 import type { QuizQuestion, QuizResult, QuizSettings } from "@/types/quiz";
-import { AlertTriangle, AlarmClock } from "lucide-react";
+import { AlertTriangle, AlarmClock, ArrowLeft, ArrowRight } from "lucide-react";
 
 const MAX_VISIBILITY_WARNINGS = 3;
 
@@ -29,6 +28,7 @@ const Quiz = () => {
   const [allResults, setAllResults] = useState<QuizResult[]>([]);
   const [visibilityWarnings, setVisibilityWarnings] = useState(0);
   const [isHidden, setIsHidden] = useState(false);
+  const [userAnswers, setUserAnswers] = useState<(string | null)[]>([]);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -199,43 +199,74 @@ const Quiz = () => {
     setScore(0);
     setSelectedAnswer(null);
     setAnswers([]);
+    setUserAnswers(new Array(questions.length).fill(null));
     setTimeRemaining(questions[0].time_limit);
   };
 
-  const handleNextQuestion = useCallback(() => {
-    if (!selectedAnswer) {
-      setAnswers(prev => [...prev, "skipped"]);
-    } else {
-      const currentQ = questions[currentQuestion];
-      if (currentQ.question_type === 'multiple_choice') {
-        if (selectedAnswer === currentQ.correct_answer) {
-          setScore(prev => prev + 1);
-        }
-      } else {
-        if (selectedAnswer.toLowerCase() === currentQ.correct_answer.toLowerCase()) {
-          setScore(prev => prev + 1);
-        }
-      }
-      setAnswers(prev => [...prev, selectedAnswer]);
+  const handlePreviousQuestion = () => {
+    if (currentQuestion > 0) {
+      const updatedUserAnswers = [...userAnswers];
+      updatedUserAnswers[currentQuestion] = selectedAnswer;
+      setUserAnswers(updatedUserAnswers);
+      
+      setCurrentQuestion(currentQuestion - 1);
+      setSelectedAnswer(userAnswers[currentQuestion - 1]);
+      setTimeRemaining(questions[currentQuestion - 1].time_limit);
     }
+  };
+
+  const handleNextQuestion = useCallback(() => {
+    const updatedUserAnswers = [...userAnswers];
+    updatedUserAnswers[currentQuestion] = selectedAnswer;
+    setUserAnswers(updatedUserAnswers);
 
     if (currentQuestion + 1 < questions.length) {
       setCurrentQuestion(currentQuestion + 1);
-      setSelectedAnswer(null);
+      setSelectedAnswer(userAnswers[currentQuestion + 1]);
       setTimeRemaining(questions[currentQuestion + 1].time_limit);
     } else {
+      let newScore = 0;
+      const finalAnswers: string[] = [];
+      
+      for (let i = 0; i < questions.length; i++) {
+        const answer = updatedUserAnswers[i];
+        const currentQ = questions[i];
+        
+        if (!answer) {
+          finalAnswers.push("skipped");
+        } else {
+          finalAnswers.push(answer);
+          
+          if (currentQ.question_type === 'multiple_choice') {
+            if (answer === currentQ.correct_answer) {
+              newScore += 1;
+            }
+          } else {
+            if (answer.toLowerCase() === currentQ.correct_answer.toLowerCase()) {
+              newScore += 1;
+            }
+          }
+        }
+      }
+      
+      setScore(newScore);
+      setAnswers(finalAnswers);
       setQuizCompleted(true);
     }
-  }, [currentQuestion, questions, selectedAnswer]);
+  }, [currentQuestion, questions, selectedAnswer, userAnswers]);
   
   const handleSkipQuestion = () => {
-    setAnswers(prev => [...prev, "skipped"]);
+    const updatedUserAnswers = [...userAnswers];
+    updatedUserAnswers[currentQuestion] = null;
+    setUserAnswers(updatedUserAnswers);
     
     if (currentQuestion + 1 < questions.length) {
       setCurrentQuestion(currentQuestion + 1);
-      setSelectedAnswer(null);
+      setSelectedAnswer(userAnswers[currentQuestion + 1]);
       setTimeRemaining(questions[currentQuestion + 1].time_limit);
     } else {
+      const finalAnswers = updatedUserAnswers.map(answer => answer || "skipped");
+      setAnswers(finalAnswers);
       setQuizCompleted(true);
     }
   };
@@ -424,11 +455,22 @@ const Quiz = () => {
 
                     <div className="flex gap-3">
                       <Button 
+                        onClick={handlePreviousQuestion}
+                        className="w-1/3"
+                        variant="secondary"
+                        disabled={currentQuestion === 0}
+                      >
+                        <ArrowLeft className="mr-1" />
+                        Previous
+                      </Button>
+
+                      <Button 
                         onClick={handleNextQuestion}
                         className="w-full"
                         variant="default"
                       >
-                        {currentQuestion + 1 === questions.length ? "Finish Quiz" : "Next Question"}
+                        {currentQuestion + 1 === questions.length ? "Finish Quiz" : "Next"}
+                        {currentQuestion + 1 !== questions.length && <ArrowRight className="ml-1" />}
                       </Button>
                       
                       <Button 
