@@ -99,6 +99,21 @@ export type Database = {
         }
         Relationships: []
       }
+      quiz_settings: {
+        Row: {
+          id: number
+          overall_time_limit: number | null
+        }
+        Insert: {
+          id?: number
+          overall_time_limit?: number | null
+        }
+        Update: {
+          id?: number
+          overall_time_limit?: number | null
+        }
+        Relationships: []
+      }
       team_members: {
         Row: {
           id: string

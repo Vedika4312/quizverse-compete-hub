@@ -130,10 +130,7 @@ const Admin = () => {
   const fetchQuizSettings = async () => {
     try {
       const { data, error } = await supabase
-        .from('quiz_settings')
-        .select('*')
-        .limit(1)
-        .single();
+        .rpc('get_quiz_settings');
 
       if (error) throw error;
 
@@ -158,11 +155,9 @@ const Admin = () => {
     try {
       setIsUpdatingSettings(true);
       
-      const { data, error } = await supabase
-        .from('quiz_settings')
-        .upsert({
-          id: quizSettings.id,
-          overall_time_limit: overallTimeLimit
+      const { error } = await supabase
+        .rpc('update_quiz_settings', { 
+          p_overall_time_limit: overallTimeLimit 
         });
 
       if (error) throw error;

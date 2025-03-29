@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,6 @@ import CodeCompiler from "@/components/CodeCompiler";
 import type { QuizQuestion, QuizResult, QuizSettings } from "@/types/quiz";
 import { AlertTriangle, AlarmClock } from "lucide-react";
 
-// Maximum number of allowed tab switches before the quiz auto-submits
 const MAX_VISIBILITY_WARNINGS = 3;
 
 const Quiz = () => {
@@ -92,17 +90,12 @@ const Quiz = () => {
 
   const fetchQuizSettings = async () => {
     try {
-      // Using raw query instead of .from('quiz_settings') to avoid type issues
       const { data, error } = await supabase
-        .from('quiz_settings')
-        .select('*')
-        .limit(1)
-        .single();
+        .rpc('get_quiz_settings');
 
       if (error) throw error;
 
       if (data && data.overall_time_limit) {
-        // Convert minutes to seconds for the timer
         setOverallTimeRemaining(data.overall_time_limit * 60);
       }
     } catch (error) {
@@ -115,7 +108,6 @@ const Quiz = () => {
     fetchQuizSettings();
   }, []);
 
-  // Question timer
   useEffect(() => {
     if (!quizStarted || timeRemaining === null) return;
 
@@ -132,14 +124,12 @@ const Quiz = () => {
     return () => clearInterval(timer);
   }, [quizStarted, timeRemaining]);
 
-  // Overall quiz timer
   useEffect(() => {
     if (!quizStarted || overallTimeRemaining === null || quizCompleted) return;
 
     const timer = setInterval(() => {
       setOverallTimeRemaining(prev => {
         if (prev === null || prev <= 0) {
-          // Auto-submit quiz when overall time runs out
           setQuizCompleted(true);
           clearInterval(timer);
           toast({
