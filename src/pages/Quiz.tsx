@@ -8,7 +8,7 @@ import { useNavigate } from "react-router-dom";
 import type { PostgrestError } from "@supabase/supabase-js";
 import { Textarea } from "@/components/ui/textarea";
 import CodeCompiler from "@/components/CodeCompiler";
-import type { QuizQuestion, QuizResult } from "@/types/quiz";
+import type { QuizQuestion, QuizResult, QuizSettings } from "@/types/quiz";
 import { AlertTriangle, AlarmClock } from "lucide-react";
 
 // Maximum number of allowed tab switches before the quiz auto-submits
@@ -92,10 +92,12 @@ const Quiz = () => {
 
   const fetchQuizSettings = async () => {
     try {
+      // Using raw query instead of .from('quiz_settings') to avoid type issues
       const { data, error } = await supabase
         .from('quiz_settings')
         .select('*')
-        .maybeSingle();
+        .limit(1)
+        .single();
 
       if (error) throw error;
 

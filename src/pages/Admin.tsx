@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -13,7 +12,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CodeCompiler from "@/components/CodeCompiler";
-import type { QuestionType } from "@/types/quiz";
+import type { QuestionType, QuizSettings } from "@/types/quiz";
 import { 
   Dialog, 
   DialogContent, 
@@ -41,10 +40,6 @@ interface QuizQuestion extends Omit<DatabaseQuizQuestion, 'options'> {
   compiler_language: string | null;
 }
 
-interface QuizSettings {
-  overall_time_limit: number | null;
-}
-
 const Admin = () => {
   const [question, setQuestion] = useState("");
   const [options, setOptions] = useState(["", "", "", ""]);
@@ -61,7 +56,7 @@ const Admin = () => {
   const [questionToDelete, setQuestionToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [overallTimeLimit, setOverallTimeLimit] = useState<number | null>(null);
-  const [quizSettings, setQuizSettings] = useState<QuizSettings>({ overall_time_limit: null });
+  const [quizSettings, setQuizSettings] = useState<QuizSettings>({ id: 1, overall_time_limit: null });
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -137,12 +132,16 @@ const Admin = () => {
       const { data, error } = await supabase
         .from('quiz_settings')
         .select('*')
-        .maybeSingle();
+        .limit(1)
+        .single();
 
       if (error) throw error;
 
       if (data) {
-        setQuizSettings(data);
+        setQuizSettings({
+          id: data.id,
+          overall_time_limit: data.overall_time_limit
+        });
         setOverallTimeLimit(data.overall_time_limit);
       }
     } catch (error) {
@@ -162,7 +161,7 @@ const Admin = () => {
       const { data, error } = await supabase
         .from('quiz_settings')
         .upsert({
-          id: quizSettings.id || 1,
+          id: quizSettings.id,
           overall_time_limit: overallTimeLimit
         });
 
@@ -283,7 +282,6 @@ const Admin = () => {
         description: "Question added successfully",
       });
       
-      // Reset form
       setQuestion("");
       setOptions(["", "", "", ""]);
       setCorrectAnswer(0);
@@ -292,7 +290,6 @@ const Admin = () => {
       setHasCompiler(false);
       setCompilerLanguage("javascript");
       
-      // Refresh questions list
       fetchQuestions();
     } catch (error) {
       console.error('Error adding question:', error);
@@ -345,7 +342,6 @@ const Admin = () => {
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-4xl mx-auto space-y-8">
-          {/* Global Quiz Settings Card */}
           <Card className="p-6 animate-slideIn">
             <h2 className="text-2xl font-semibold mb-6">Quiz Settings</h2>
             <div className="space-y-4">
