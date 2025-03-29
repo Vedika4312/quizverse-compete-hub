@@ -23,4 +23,5 @@ export interface QuizResult {
 export interface QuizSettings {
   id: number;
   overall_time_limit: number | null;
+  quiz_start_time: string | null;
 }

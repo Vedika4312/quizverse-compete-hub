@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,7 @@ import type { PostgrestError } from "@supabase/supabase-js";
 import { Textarea } from "@/components/ui/textarea";
 import CodeCompiler from "@/components/CodeCompiler";
 import type { QuizQuestion, QuizResult, QuizSettings } from "@/types/quiz";
-import { AlertTriangle, AlarmClock, ArrowLeft, ArrowRight } from "lucide-react";
+import { AlertTriangle, AlarmClock, ArrowLeft, ArrowRight, Calendar, Clock } from "lucide-react";
 
 const MAX_VISIBILITY_WARNINGS = 3;
 
@@ -29,6 +30,9 @@ const Quiz = () => {
   const [visibilityWarnings, setVisibilityWarnings] = useState(0);
   const [isHidden, setIsHidden] = useState(false);
   const [userAnswers, setUserAnswers] = useState<(string | null)[]>([]);
+  const [quizSettings, setQuizSettings] = useState<QuizSettings | null>(null);
+  const [quizStartTimeReached, setQuizStartTimeReached] = useState(true);
+  const [timeUntilStart, setTimeUntilStart] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -96,12 +100,63 @@ const Quiz = () => {
 
       if (error) throw error;
 
-      if (data && data.length > 0 && data[0].overall_time_limit) {
-        setOverallTimeRemaining(data[0].overall_time_limit * 60);
+      if (data && data.length > 0) {
+        const settings = data[0];
+        setQuizSettings({
+          id: settings.id,
+          overall_time_limit: settings.overall_time_limit,
+          quiz_start_time: settings.quiz_start_time
+        });
+        
+        if (settings.overall_time_limit) {
+          setOverallTimeRemaining(settings.overall_time_limit * 60);
+        }
+        
+        // Check if quiz start time has been reached
+        if (settings.quiz_start_time) {
+          const startTime = new Date(settings.quiz_start_time);
+          const currentTime = new Date();
+          
+          if (currentTime < startTime) {
+            setQuizStartTimeReached(false);
+            
+            // Calculate time until quiz starts
+            const timeUntil = getTimeUntilStart(startTime);
+            setTimeUntilStart(timeUntil);
+            
+            // Start a countdown to update the time remaining
+            const timer = setInterval(() => {
+              const newTimeUntil = getTimeUntilStart(startTime);
+              setTimeUntilStart(newTimeUntil);
+              
+              // Check if the time has been reached
+              if (new Date() >= startTime) {
+                setQuizStartTimeReached(true);
+                clearInterval(timer);
+              }
+            }, 1000);
+            
+            return () => clearInterval(timer);
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching quiz settings:', error);
     }
+  };
+  
+  const getTimeUntilStart = (startTime: Date): string => {
+    const now = new Date();
+    const diffMs = startTime.getTime() - now.getTime();
+    
+    if (diffMs <= 0) return "0:00:00";
+    
+    const diffSecs = Math.floor(diffMs / 1000);
+    const hours = Math.floor(diffSecs / 3600);
+    const minutes = Math.floor((diffSecs % 3600) / 60);
+    const seconds = diffSecs % 60;
+    
+    return `${hours}:${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
   };
 
   useEffect(() => {
@@ -182,6 +237,15 @@ const Quiz = () => {
   }, [quizStarted, quizCompleted, visibilityWarnings, toast]);
 
   const handleStartQuiz = () => {
+    if (!quizStartTimeReached) {
+      toast({
+        title: "Quiz Not Available",
+        description: `The quiz will be available in ${timeUntilStart}`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (questions.length === 0) {
       toast({
         title: "No Questions",
@@ -364,6 +428,26 @@ const Quiz = () => {
               <div className="text-center space-y-4">
                 <h2 className="text-2xl font-semibold">Welcome to the Quiz!</h2>
                 <p className="text-gray-600">Test your knowledge with our quiz questions.</p>
+                
+                {!quizStartTimeReached && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
+                    <div className="flex items-start">
+                      <Calendar className="w-5 h-5 text-blue-500 mr-2 mt-0.5" />
+                      <div>
+                        <h3 className="text-sm font-medium text-blue-800">Quiz Not Yet Available</h3>
+                        <p className="text-sm text-blue-700 mt-1">
+                          The quiz will be available in: <span className="font-semibold">{timeUntilStart}</span>
+                        </p>
+                        {quizSettings?.quiz_start_time && (
+                          <p className="text-sm text-blue-700 mt-1">
+                            Scheduled start: {new Date(quizSettings.quiz_start_time).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="bg-amber-50 border border-amber-200 rounded-md p-4 mb-4">
                   <div className="flex items-start">
                     <AlertTriangle className="w-5 h-5 text-amber-500 mr-2 mt-0.5" />
@@ -376,8 +460,12 @@ const Quiz = () => {
                     </div>
                   </div>
                 </div>
-                <Button onClick={handleStartQuiz} className="w-full">
-                  Start Quiz
+                <Button 
+                  onClick={handleStartQuiz} 
+                  className="w-full"
+                  disabled={!quizStartTimeReached}
+                >
+                  {!quizStartTimeReached ? `Quiz Available in ${timeUntilStart}` : "Start Quiz"}
                 </Button>
               </div>
             ) : (

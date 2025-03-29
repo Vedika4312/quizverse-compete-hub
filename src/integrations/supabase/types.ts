@@ -103,14 +103,17 @@ export type Database = {
         Row: {
           id: number
           overall_time_limit: number | null
+          quiz_start_time: string | null
         }
         Insert: {
           id?: number
           overall_time_limit?: number | null
+          quiz_start_time?: string | null
         }
         Update: {
           id?: number
           overall_time_limit?: number | null
+          quiz_start_time?: string | null
         }
         Relationships: []
       }
@@ -201,6 +204,7 @@ export type Database = {
         Returns: {
           id: number
           overall_time_limit: number
+          quiz_start_time: string
         }[]
       }
       is_admin: {
@@ -212,6 +216,7 @@ export type Database = {
       update_quiz_settings: {
         Args: {
           p_overall_time_limit: number
+          p_quiz_start_time?: string
         }
         Returns: undefined
       }

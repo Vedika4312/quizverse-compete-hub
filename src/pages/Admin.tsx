@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Trash2, Clock, AlarmClock } from "lucide-react";
+import { Trash2, Clock, AlarmClock, Calendar } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -56,7 +57,12 @@ const Admin = () => {
   const [questionToDelete, setQuestionToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [overallTimeLimit, setOverallTimeLimit] = useState<number | null>(null);
-  const [quizSettings, setQuizSettings] = useState<QuizSettings>({ id: 1, overall_time_limit: null });
+  const [quizStartTime, setQuizStartTime] = useState<string>("");
+  const [quizSettings, setQuizSettings] = useState<QuizSettings>({ 
+    id: 1, 
+    overall_time_limit: null, 
+    quiz_start_time: null 
+  });
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -138,9 +144,11 @@ const Admin = () => {
         const settings = data[0];
         setQuizSettings({
           id: settings.id,
-          overall_time_limit: settings.overall_time_limit
+          overall_time_limit: settings.overall_time_limit,
+          quiz_start_time: settings.quiz_start_time
         });
         setOverallTimeLimit(settings.overall_time_limit);
+        setQuizStartTime(settings.quiz_start_time ? new Date(settings.quiz_start_time).toISOString().slice(0, 16) : "");
       }
     } catch (error) {
       console.error('Error fetching quiz settings:', error);
@@ -156,9 +164,12 @@ const Admin = () => {
     try {
       setIsUpdatingSettings(true);
       
+      const quizStartTimeValue = quizStartTime ? new Date(quizStartTime).toISOString() : null;
+      
       const { error } = await supabase
         .rpc('update_quiz_settings', { 
-          p_overall_time_limit: overallTimeLimit 
+          p_overall_time_limit: overallTimeLimit,
+          p_quiz_start_time: quizStartTimeValue
         });
 
       if (error) throw error;
@@ -365,6 +376,29 @@ const Admin = () => {
                   Set an overall time limit for the entire quiz. Leave empty to use only per-question time limits.
                 </p>
               </div>
+              
+              <div className="flex flex-col space-y-2">
+                <Label htmlFor="quizStartTime" className="flex items-center">
+                  <Calendar className="h-5 w-5 mr-2 text-primary" />
+                  Quiz Start Time
+                </Label>
+                <div className="flex items-center space-x-4">
+                  <Input
+                    id="quizStartTime"
+                    type="datetime-local"
+                    value={quizStartTime}
+                    onChange={(e) => setQuizStartTime(e.target.value)}
+                    className="w-64"
+                  />
+                  <span className="text-sm text-gray-500">
+                    {quizStartTime ? `Quiz will be accessible from this time` : 'No start time restriction (quiz available anytime)'}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-500 mt-1">
+                  Set when the quiz will become available to users. Leave empty to allow access anytime.
+                </p>
+              </div>
+              
               <Button 
                 onClick={updateQuizSettings} 
                 disabled={isUpdatingSettings}
