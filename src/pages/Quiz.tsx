@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -95,8 +96,8 @@ const Quiz = () => {
 
       if (error) throw error;
 
-      if (data && data.overall_time_limit) {
-        setOverallTimeRemaining(data.overall_time_limit * 60);
+      if (data && data.length > 0 && data[0].overall_time_limit) {
+        setOverallTimeRemaining(data[0].overall_time_limit * 60);
       }
     } catch (error) {
       console.error('Error fetching quiz settings:', error);

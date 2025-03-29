@@ -196,11 +196,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_quiz_settings: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: number
+          overall_time_limit: number
+        }[]
+      }
       is_admin: {
         Args: {
           user_id: string
         }
         Returns: boolean
+      }
+      update_quiz_settings: {
+        Args: {
+          p_overall_time_limit: number
+        }
+        Returns: undefined
       }
     }
     Enums: {

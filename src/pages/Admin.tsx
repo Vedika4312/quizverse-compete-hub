@@ -134,12 +134,13 @@ const Admin = () => {
 
       if (error) throw error;
 
-      if (data) {
+      if (data && data.length > 0) {
+        const settings = data[0];
         setQuizSettings({
-          id: data.id,
-          overall_time_limit: data.overall_time_limit
+          id: settings.id,
+          overall_time_limit: settings.overall_time_limit
         });
-        setOverallTimeLimit(data.overall_time_limit);
+        setOverallTimeLimit(settings.overall_time_limit);
       }
     } catch (error) {
       console.error('Error fetching quiz settings:', error);
