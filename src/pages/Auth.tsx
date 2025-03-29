@@ -47,10 +47,14 @@ const Auth = () => {
           },
         });
         if (error) throw error;
+        
+        // Show success message and redirect to index page immediately
         toast({
           title: "Success!",
-          description: "Please check your email to confirm your account.",
+          description: "Your account has been created. You are now signed in.",
         });
+        
+        navigate("/");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
