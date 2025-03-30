@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -5,15 +6,10 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import AdminUsers from "@/components/admin/AdminUsers";
-import TeamScores from "@/components/admin/TeamScores";
-import QuestionsManager from "@/components/admin/QuestionsManager";
-import QAManager from "@/components/admin/QAManager";
-import TeamMembersTable from "@/components/admin/TeamMembersTable";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Trash2, Clock, AlarmClock, Calendar } from "lucide-react";
+import { Trash2, AlarmClock, Calendar } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -357,13 +353,8 @@ const Admin = () => {
           <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
           
           <Tabs defaultValue="quiz" className="w-full">
-            <TabsList className="grid grid-cols-6 w-full mb-8">
-              <TabsTrigger value="quiz">Quiz Settings</TabsTrigger>
-              <TabsTrigger value="questions">Questions</TabsTrigger>
-              <TabsTrigger value="qa-items">QA Items</TabsTrigger>
-              <TabsTrigger value="teams">Team Scores</TabsTrigger>
-              <TabsTrigger value="members">Team Members</TabsTrigger>
-              <TabsTrigger value="users">Admin Users</TabsTrigger>
+            <TabsList className="w-full mb-8">
+              <TabsTrigger value="quiz" className="flex-1">Quiz Settings</TabsTrigger>
             </TabsList>
             
             <TabsContent value="quiz" className="space-y-8">
@@ -623,26 +614,6 @@ const Admin = () => {
                   </Table>
                 </div>
               </Card>
-            </TabsContent>
-            
-            <TabsContent value="questions" className="space-y-8">
-              <QuestionsManager />
-            </TabsContent>
-            
-            <TabsContent value="qa-items" className="space-y-8">
-              <QAManager />
-            </TabsContent>
-            
-            <TabsContent value="teams" className="space-y-8">
-              <TeamScores />
-            </TabsContent>
-            
-            <TabsContent value="members" className="space-y-8">
-              <TeamMembersTable />
-            </TabsContent>
-            
-            <TabsContent value="users" className="space-y-8">
-              <AdminUsers />
             </TabsContent>
           </Tabs>
         </div>

@@ -26,6 +26,7 @@ export interface QuizSettings {
   quiz_start_time: string | null;
 }
 
+// The following interfaces are kept for reference but no longer used in the admin panel
 export interface TeamMember {
   id: string;
   team_id: string;
@@ -47,7 +48,7 @@ export interface Question {
   id: string;
   question_text: string;
   created_at: string;
-  quiz_id?: number; // Making this optional since it might not be needed in all cases
+  quiz_id?: number;
 }
 
 export interface QAItem {
