@@ -102,10 +102,17 @@ const QuestionsManager = () => {
 
   const handleDeleteQuestion = async (id: string) => {
     try {
+      // Convert id to number since our database is expecting a number
+      const numericId = parseInt(id, 10);
+      
+      if (isNaN(numericId)) {
+        throw new Error("Invalid question ID");
+      }
+      
       const { error } = await supabase
         .from('questions')
         .delete()
-        .eq('id', id);
+        .eq('id', numericId);
 
       if (error) throw error;
 
