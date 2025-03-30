@@ -25,3 +25,33 @@ export interface QuizSettings {
   overall_time_limit: number | null;
   quiz_start_time: string | null;
 }
+
+export interface TeamMember {
+  id: string;
+  team_id: string;
+  user_id: string;
+  member_name: string;
+  email: string | null;
+  is_captain: boolean;
+  joined_at: string;
+}
+
+export interface TeamScore {
+  id: string;
+  team_id: string;
+  score: number;
+  quiz_date: string | null;
+}
+
+export interface Question {
+  id: string;
+  question_text: string;
+  created_at: string;
+}
+
+export interface AdminUser {
+  id: string;
+  user_id: string;
+  added_by: string;
+  created_at: string;
+}

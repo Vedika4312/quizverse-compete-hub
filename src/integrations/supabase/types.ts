@@ -9,6 +9,77 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      admin_management: {
+        Row: {
+          added_by: string
+          created_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          added_by: string
+          created_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          added_by?: string
+          created_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      admin_roles: {
+        Row: {
+          created_at: string | null
+          id: number
+          role_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: never
+          role_name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: never
+          role_name?: string
+        }
+        Relationships: []
+      }
+      marks: {
+        Row: {
+          created_at: string | null
+          id: number
+          quiz_id: number
+          score: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: never
+          quiz_id: number
+          score: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: never
+          quiz_id?: number
+          score?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marks_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -35,6 +106,35 @@ export type Database = {
           username?: string | null
         }
         Relationships: []
+      }
+      questions: {
+        Row: {
+          created_at: string | null
+          id: number
+          question_text: string
+          quiz_id: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: never
+          question_text: string
+          quiz_id: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: never
+          question_text?: string
+          quiz_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_settings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quiz_questions: {
         Row: {
@@ -119,6 +219,7 @@ export type Database = {
       }
       team_members: {
         Row: {
+          email: string | null
           id: string
           is_captain: boolean | null
           joined_at: string
@@ -127,6 +228,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          email?: string | null
           id?: string
           is_captain?: boolean | null
           joined_at?: string
@@ -135,6 +237,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          email?: string | null
           id?: string
           is_captain?: boolean | null
           joined_at?: string
@@ -145,6 +248,35 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_scores: {
+        Row: {
+          id: string
+          quiz_date: string | null
+          score: number
+          team_id: string
+        }
+        Insert: {
+          id?: string
+          quiz_date?: string | null
+          score?: number
+          team_id: string
+        }
+        Update: {
+          id?: string
+          quiz_date?: string | null
+          score?: number
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_scores_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
@@ -199,6 +331,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_admin_user: {
+        Args: {
+          user_email: string
+        }
+        Returns: string
+      }
       get_quiz_settings: {
         Args: Record<PropertyKey, never>
         Returns: {
