@@ -18,7 +18,7 @@ import { UserPlus } from "lucide-react";
 import type { AdminUser } from "@/types/quiz";
 
 const AdminUsers = () => {
-  const [adminUsers, setAdminUsers] = useState<any[]>([]);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [userEmail, setUserEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -40,26 +40,16 @@ const AdminUsers = () => {
 
       if (managementError) throw managementError;
 
-      // Get user details for each admin
-      if (userRoles) {
-        const adminIds = userRoles.map(role => role.user_id);
-        const { data: userData, error: userError } = await supabase.auth.admin.listUsers();
-
-        if (userError) throw userError;
-
-        // Combine the data
-        const combinedData = adminIds.map(adminId => {
-          const user = userData?.users?.find(u => u.id === adminId);
-          const management = managementData?.find(m => m.user_id === adminId);
-          
-          return {
-            id: adminId,
-            email: user?.email || 'Unknown',
-            created_at: management?.created_at || user?.created_at || 'Unknown'
-          };
-        });
-
-        setAdminUsers(combinedData);
+      if (userRoles && managementData) {
+        // Transform the data to match our AdminUser interface
+        const adminUsersData: AdminUser[] = managementData.map(admin => ({
+          id: admin.id,
+          user_id: admin.user_id,
+          added_by: admin.added_by,
+          created_at: admin.created_at || new Date().toISOString()
+        }));
+        
+        setAdminUsers(adminUsersData);
       }
     } catch (error) {
       console.error('Error fetching admin users:', error);
@@ -146,7 +136,7 @@ const AdminUsers = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Email</TableHead>
+              <TableHead>User ID</TableHead>
               <TableHead>Added On</TableHead>
             </TableRow>
           </TableHeader>
@@ -154,7 +144,7 @@ const AdminUsers = () => {
             {adminUsers.length > 0 ? (
               adminUsers.map((admin) => (
                 <TableRow key={admin.id}>
-                  <TableCell className="font-medium">{admin.email}</TableCell>
+                  <TableCell className="font-medium">{admin.user_id}</TableCell>
                   <TableCell>
                     {new Date(admin.created_at).toLocaleDateString()}
                   </TableCell>

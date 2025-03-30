@@ -47,6 +47,7 @@ export interface Question {
   id: string;
   question_text: string;
   created_at: string;
+  quiz_id?: number; // Making this optional since it might not be needed in all cases
 }
 
 export interface AdminUser {

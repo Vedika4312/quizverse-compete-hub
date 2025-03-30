@@ -31,7 +31,16 @@ const QuestionsManager = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setQuestions(data || []);
+      
+      // Transform the data to match our Question interface
+      const transformedData: Question[] = (data || []).map(item => ({
+        id: item.id.toString(), // Convert to string if it's a number
+        question_text: item.question_text,
+        created_at: item.created_at,
+        quiz_id: item.quiz_id
+      }));
+      
+      setQuestions(transformedData);
     } catch (error) {
       console.error('Error fetching questions:', error);
       toast({
@@ -60,10 +69,14 @@ const QuestionsManager = () => {
         return;
       }
 
+      // Get the default quiz ID (1 if not specified)
+      const defaultQuizId = 1;
+      
       const { data, error } = await supabase
         .from('questions')
         .insert({
-          question_text: questionText.trim()
+          question_text: questionText.trim(),
+          quiz_id: defaultQuizId
         });
 
       if (error) throw error;
