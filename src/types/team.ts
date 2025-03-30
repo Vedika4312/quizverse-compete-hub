@@ -1,4 +1,3 @@
-
 export interface TeamMember {
   name: string;
   index: number;
@@ -13,4 +12,19 @@ export interface TeamFormData {
     name: string;
     email: string;
   }>;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  created_at: string;
+  captain_id?: string;
+}
+
+export interface TeamScore {
+  id: string;
+  team_id: string;
+  team_name?: string;
+  score: number;
+  quiz_date: string;
 }

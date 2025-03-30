@@ -90,6 +90,62 @@ export type Database = {
         }
         Relationships: []
       }
+      team_members: {
+        Row: {
+          id: string
+          is_captain: boolean | null
+          joined_at: string | null
+          member_name: string
+          team_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          is_captain?: boolean | null
+          joined_at?: string | null
+          member_name: string
+          team_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          is_captain?: boolean | null
+          joined_at?: string | null
+          member_name?: string
+          team_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          captain_id: string | null
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          captain_id?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          captain_id?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null

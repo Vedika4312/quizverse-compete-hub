@@ -10,3 +10,10 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+// This is a workaround to make TypeScript happy with the database schema
+// until the types.ts file is regenerated
+export const customSupabase = {
+  from: (table: string) => supabase.from(table as any),
+  rpc: (fn: string, params?: any) => supabase.rpc(fn as any, params)
+};
