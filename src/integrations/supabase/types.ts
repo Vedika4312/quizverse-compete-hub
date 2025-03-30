@@ -9,13 +9,133 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      quiz_questions: {
+        Row: {
+          compiler_language: string | null
+          correct_answer: string
+          created_at: string | null
+          created_by: string | null
+          has_compiler: boolean | null
+          id: string
+          options: Json
+          question: string
+          question_type: string
+          time_limit: number
+        }
+        Insert: {
+          compiler_language?: string | null
+          correct_answer: string
+          created_at?: string | null
+          created_by?: string | null
+          has_compiler?: boolean | null
+          id?: string
+          options?: Json
+          question: string
+          question_type?: string
+          time_limit?: number
+        }
+        Update: {
+          compiler_language?: string | null
+          correct_answer?: string
+          created_at?: string | null
+          created_by?: string | null
+          has_compiler?: boolean | null
+          id?: string
+          options?: Json
+          question?: string
+          question_type?: string
+          time_limit?: number
+        }
+        Relationships: []
+      }
+      quiz_results: {
+        Row: {
+          completed_at: string | null
+          id: string
+          score: number
+          total_questions: number
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          id?: string
+          score?: number
+          total_questions?: number
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          id?: string
+          score?: number
+          total_questions?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      quiz_settings: {
+        Row: {
+          id: number
+          overall_time_limit: number | null
+          quiz_start_time: string | null
+        }
+        Insert: {
+          id?: number
+          overall_time_limit?: number | null
+          quiz_start_time?: string | null
+        }
+        Update: {
+          id?: number
+          overall_time_limit?: number | null
+          quiz_start_time?: string | null
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      add_admin_user: {
+        Args: {
+          user_email: string
+        }
+        Returns: Json
+      }
+      get_quiz_settings: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: number
+          overall_time_limit: number | null
+          quiz_start_time: string | null
+        }[]
+      }
+      is_admin: {
+        Args: {
+          user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

@@ -25,7 +25,7 @@ const AdminUsers = () => {
 
   const fetchAdminUsers = async () => {
     try {
-      // First get admin user IDs
+      // First get admin user IDs from user_roles table
       const { data: userRoles, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id')
@@ -33,20 +33,13 @@ const AdminUsers = () => {
 
       if (rolesError) throw rolesError;
 
-      // Get admin management records
-      const { data: managementData, error: managementError } = await supabase
-        .from('admin_management')
-        .select('*');
-
-      if (managementError) throw managementError;
-
-      if (userRoles && managementData) {
+      if (userRoles) {
         // Transform the data to match our AdminUser interface
-        const adminUsersData: AdminUser[] = managementData.map(admin => ({
-          id: admin.id,
-          user_id: admin.user_id,
-          added_by: admin.added_by,
-          created_at: admin.created_at || new Date().toISOString()
+        const adminUsersData: AdminUser[] = userRoles.map(role => ({
+          id: crypto.randomUUID(), // Generate ID since we're not using admin_management table
+          user_id: role.user_id,
+          added_by: '', // We don't have this information in user_roles table
+          created_at: new Date().toISOString()
         }));
         
         setAdminUsers(adminUsersData);
