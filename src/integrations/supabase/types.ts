@@ -107,6 +107,38 @@ export type Database = {
         }
         Relationships: []
       }
+      qa_items: {
+        Row: {
+          answer_text: string
+          created_at: string | null
+          id: number
+          question_text: string
+          quiz_id: number | null
+        }
+        Insert: {
+          answer_text: string
+          created_at?: string | null
+          id?: number
+          question_text: string
+          quiz_id?: number | null
+        }
+        Update: {
+          answer_text?: string
+          created_at?: string | null
+          id?: number
+          question_text?: string
+          quiz_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_items_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       questions: {
         Row: {
           created_at: string | null

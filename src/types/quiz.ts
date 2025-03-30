@@ -50,6 +50,14 @@ export interface Question {
   quiz_id?: number; // Making this optional since it might not be needed in all cases
 }
 
+export interface QAItem {
+  id: number;
+  question_text: string;
+  answer_text: string;
+  created_at: string;
+  quiz_id?: number;
+}
+
 export interface AdminUser {
   id: string;
   user_id: string;
