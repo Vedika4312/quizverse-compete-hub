@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -14,7 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Question } from "@/types/quiz";
-import { Trash2, Plus, Clock, ClockOff } from "lucide-react";
+import { Trash2, Plus, Clock, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -27,7 +28,7 @@ const QuestionsManager = () => {
   const fetchQuestions = async () => {
     try {
       const { data, error } = await supabase
-        .from('questions')
+        .from('quiz_questions')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -35,10 +36,11 @@ const QuestionsManager = () => {
       
       // Transform the data to match our Question interface
       const transformedData: Question[] = (data || []).map(item => ({
-        id: item.id.toString(), // Convert to string if it's a number
-        question_text: item.question_text,
-        created_at: item.created_at,
-        quiz_id: item.quiz_id
+        id: item.id.toString(),
+        question_text: item.question,
+        created_at: item.created_at || new Date().toISOString(),
+        time_limit: item.time_limit,
+        quiz_id: item.quiz_id || 1
       }));
       
       setQuestions(transformedData);
@@ -74,9 +76,9 @@ const QuestionsManager = () => {
       const defaultQuizId = 1;
       
       const { data, error } = await supabase
-        .from('questions')
+        .from('quiz_questions')
         .insert({
-          question_text: questionText.trim(),
+          question: questionText.trim(),
           quiz_id: defaultQuizId
         });
 
@@ -111,7 +113,7 @@ const QuestionsManager = () => {
       }
       
       const { error } = await supabase
-        .from('questions')
+        .from('quiz_questions')
         .delete()
         .eq('id', numericId);
 
@@ -133,11 +135,15 @@ const QuestionsManager = () => {
     }
   };
 
-  const toggleQuestionTimeLimit = async (questionId: string, currentTimeLimit: number | null) => {
+  const toggleQuestionTimeLimit = async (questionId: string) => {
     try {
-      // If the current time limit is null, set it to default 30 seconds
-      // If it has a value, set it to null (removing the time limit)
-      const newTimeLimit = currentTimeLimit === null ? 30 : null;
+      // Find the current question's time limit
+      const question = questions.find(q => q.id === questionId);
+      if (!question) return;
+      
+      // If the current time limit is 0, set it to default 30 seconds
+      // If it has a value > 0, set it to 0 (removing the time limit)
+      const newTimeLimit = question.time_limit === 0 ? 30 : 0;
       
       const { error } = await supabase
         .from('quiz_questions')
@@ -148,7 +154,7 @@ const QuestionsManager = () => {
 
       toast({
         title: "Success",
-        description: newTimeLimit === null 
+        description: newTimeLimit === 0 
           ? "Time limit has been removed from the question" 
           : "Default time limit has been set for the question",
       });
@@ -165,7 +171,7 @@ const QuestionsManager = () => {
     }
   };
 
-  const updateQuestionTimeLimit = async (questionId: string, newTimeLimit: number | null) => {
+  const updateQuestionTimeLimit = async (questionId: string, newTimeLimit: number) => {
     try {
       const { error } = await supabase
         .from('quiz_questions')
@@ -241,44 +247,44 @@ const QuestionsManager = () => {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => toggleQuestionTimeLimit(question.id, question.time_limit)}
+                              onClick={() => toggleQuestionTimeLimit(question.id)}
                             >
-                              {question.time_limit === null ? (
-                                <ClockOff className="h-4 w-4 text-gray-500" />
+                              {question.time_limit === 0 ? (
+                                <X className="h-4 w-4 text-gray-500" />
                               ) : (
                                 <Clock className="h-4 w-4 text-blue-500" />
                               )}
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            {question.time_limit === null 
+                            {question.time_limit === 0 
                               ? "Set default time limit" 
                               : "Remove time limit"}
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                       
-                      {question.time_limit !== null && (
+                      {question.time_limit > 0 && (
                         <input
                           type="number"
-                          min="5"
+                          min="0"
                           max="300"
                           className="w-20 text-center p-1 border rounded"
-                          value={question.time_limit || 30}
+                          value={question.time_limit}
                           onChange={(e) => {
-                            const newTimeLimit = e.target.value ? Number(e.target.value) : null;
-                            if ((newTimeLimit === null) || (newTimeLimit >= 5 && newTimeLimit <= 300)) {
+                            const newTimeLimit = parseInt(e.target.value);
+                            if ((newTimeLimit === 0) || (newTimeLimit >= 5 && newTimeLimit <= 300)) {
                               updateQuestionTimeLimit(question.id, newTimeLimit);
                             }
                           }}
                         />
                       )}
                       
-                      {question.time_limit !== null && (
+                      {question.time_limit > 0 && (
                         <span className="text-xs text-gray-500">sec</span>
                       )}
                       
-                      {question.time_limit === null && (
+                      {question.time_limit === 0 && (
                         <span className="text-xs text-gray-500">No limit</span>
                       )}
                     </div>

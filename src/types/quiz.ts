@@ -49,6 +49,7 @@ export interface Question {
   question_text: string;
   created_at: string;
   quiz_id?: number;
+  time_limit: number;
 }
 
 export interface QAItem {
