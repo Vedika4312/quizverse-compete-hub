@@ -75,7 +75,9 @@ const QuestionsManager = () => {
       const { data, error } = await supabase
         .from('quiz_questions')
         .insert({
-          question: questionText.trim()
+          question: questionText.trim(),
+          correct_answer: "", // Add a default empty string for correct_answer
+          options: [] // Add empty array for options
         });
 
       if (error) throw error;
