@@ -40,7 +40,7 @@ const QuestionsManager = () => {
         question_text: item.question,
         created_at: item.created_at || new Date().toISOString(),
         time_limit: item.time_limit,
-        quiz_id: item.quiz_id || 1
+        quiz_id: undefined
       }));
       
       setQuestions(transformedData);
@@ -72,14 +72,10 @@ const QuestionsManager = () => {
         return;
       }
 
-      // Get the default quiz ID (1 if not specified)
-      const defaultQuizId = 1;
-      
       const { data, error } = await supabase
         .from('quiz_questions')
         .insert({
-          question: questionText.trim(),
-          quiz_id: defaultQuizId
+          question: questionText.trim()
         });
 
       if (error) throw error;
@@ -273,7 +269,8 @@ const QuestionsManager = () => {
                           value={question.time_limit}
                           onChange={(e) => {
                             const newTimeLimit = parseInt(e.target.value);
-                            if ((newTimeLimit === 0) || (newTimeLimit >= 5 && newTimeLimit <= 300)) {
+                            // Allow 0 or values between 5 and 300
+                            if (newTimeLimit === 0 || (newTimeLimit >= 5 && newTimeLimit <= 300)) {
                               updateQuestionTimeLimit(question.id, newTimeLimit);
                             }
                           }}
