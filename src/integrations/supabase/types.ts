@@ -192,6 +192,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      update_quiz_settings: {
+        Args: {
+          p_overall_time_limit: number
+          p_quiz_start_time: string
+        }
+        Returns: {
+          id: number
+          overall_time_limit: number | null
+          quiz_start_time: string | null
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

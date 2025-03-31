@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, customSupabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -136,7 +136,7 @@ const Admin = () => {
 
   const fetchQuizSettings = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await customSupabase
         .rpc('get_quiz_settings');
 
       if (error) throw error;
@@ -167,7 +167,7 @@ const Admin = () => {
       
       const quizStartTimeValue = quizStartTime ? new Date(quizStartTime).toISOString() : null;
       
-      const { error } = await supabase
+      const { data, error } = await customSupabase
         .rpc('update_quiz_settings', { 
           p_overall_time_limit: overallTimeLimit,
           p_quiz_start_time: quizStartTimeValue
