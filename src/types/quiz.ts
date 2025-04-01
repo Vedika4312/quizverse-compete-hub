@@ -18,6 +18,7 @@ export interface QuizResult {
   score: number;
   total_questions: number;
   completed_at: string;
+  answers?: string[];
 }
 
 export interface QuizSettings {
@@ -50,6 +51,7 @@ export interface Question {
   created_at: string;
   quiz_id?: number;
   time_limit: number;
+  question_type?: QuestionType;
 }
 
 export interface QAItem {

@@ -16,12 +16,21 @@ import {
 } from "@/components/ui/table";
 import { Question } from "@/types/quiz";
 import { Trash2, Plus, Clock, X } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Input } from "@/components/ui/input";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue 
+} from "@/components/ui/select";
 
 const QuestionsManager = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [questionText, setQuestionText] = useState("");
+  const [questionType, setQuestionType] = useState<"multiple_choice" | "written">("multiple_choice");
+  const [correctAnswer, setCorrectAnswer] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -40,7 +49,8 @@ const QuestionsManager = () => {
         question_text: item.question,
         created_at: item.created_at || new Date().toISOString(),
         time_limit: item.time_limit,
-        quiz_id: undefined
+        quiz_id: undefined,
+        question_type: item.question_type || "multiple_choice"
       }));
       
       setQuestions(transformedData);
@@ -72,13 +82,16 @@ const QuestionsManager = () => {
         return;
       }
 
+      const insertData = {
+        question: questionText.trim(),
+        question_type: questionType,
+        correct_answer: correctAnswer || "", // Store correct answer if provided
+        options: [] // Add empty array for options
+      };
+
       const { data, error } = await supabase
         .from('quiz_questions')
-        .insert({
-          question: questionText.trim(),
-          correct_answer: "", // Add a default empty string for correct_answer
-          options: [] // Add empty array for options
-        });
+        .insert(insertData);
 
       if (error) throw error;
 
@@ -88,6 +101,7 @@ const QuestionsManager = () => {
       });
 
       setQuestionText("");
+      setCorrectAnswer("");
       fetchQuestions();
     } catch (error: any) {
       console.error('Error adding question:', error);
@@ -104,11 +118,7 @@ const QuestionsManager = () => {
   const handleDeleteQuestion = async (id: string) => {
     try {
       // Convert id to number since our database is expecting a number
-      const numericId = parseInt(id, 10);
-      
-      if (isNaN(numericId)) {
-        throw new Error("Invalid question ID");
-      }
+      const numericId = id;
       
       const { error } = await supabase
         .from('quiz_questions')
@@ -211,6 +221,38 @@ const QuestionsManager = () => {
               className="resize-y"
             />
           </div>
+          
+          <div>
+            <Label htmlFor="questionType">Question Type</Label>
+            <Select 
+              value={questionType} 
+              onValueChange={(value) => setQuestionType(value as "multiple_choice" | "written")}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select question type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
+                <SelectItem value="written">Written</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {questionType === "written" && (
+            <div>
+              <Label htmlFor="correctAnswer">Correct Answer (for Written Questions)</Label>
+              <Input
+                id="correctAnswer"
+                placeholder="Enter correct answer"
+                value={correctAnswer}
+                onChange={(e) => setCorrectAnswer(e.target.value)}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                This will be used to automatically compare with user answers
+              </p>
+            </div>
+          )}
+          
           <Button type="submit" disabled={isSubmitting} className="self-start">
             <Plus className="w-4 h-4 mr-2" />
             {isSubmitting ? "Adding..." : "Add Question"}
@@ -224,6 +266,7 @@ const QuestionsManager = () => {
           <TableHeader>
             <TableRow>
               <TableHead>Question</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead>Created At</TableHead>
               <TableHead className="text-center">Time Limit</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -234,6 +277,9 @@ const QuestionsManager = () => {
               questions.map((question) => (
                 <TableRow key={question.id}>
                   <TableCell className="font-medium">{question.question_text}</TableCell>
+                  <TableCell>
+                    {question.question_type === "written" ? "Written" : "Multiple Choice"}
+                  </TableCell>
                   <TableCell>
                     {new Date(question.created_at).toLocaleDateString()}
                   </TableCell>
@@ -301,7 +347,7 @@ const QuestionsManager = () => {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-4 text-gray-500">
+                <TableCell colSpan={5} className="text-center py-4 text-gray-500">
                   No questions found
                 </TableCell>
               </TableRow>
