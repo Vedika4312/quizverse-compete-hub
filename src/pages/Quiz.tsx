@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,6 +32,9 @@ const Quiz = () => {
   const [quizSettings, setQuizSettings] = useState<QuizSettings | null>(null);
   const [quizStartTimeReached, setQuizStartTimeReached] = useState(true);
   const [timeUntilStart, setTimeUntilStart] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>("");
+  const [teamName, setTeamName] = useState<string>("");
+  const [writtenAnswers, setWrittenAnswers] = useState<{question_id: string, answer: string}[]>([]);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -42,6 +44,17 @@ const Quiz = () => {
       if (!user) {
         navigate('/auth');
         return;
+      }
+
+      const { data: teamMemberData, error: teamMemberError } = await supabase
+        .from('team_members')
+        .select('member_name, teams:team_id(name)')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!teamMemberError && teamMemberData) {
+        setUserName(teamMemberData.member_name || "");
+        setTeamName(teamMemberData.teams?.name || "");
       }
 
       const { data, error } = await supabase.rpc('is_admin', { user_id: user.id });
@@ -112,7 +125,6 @@ const Quiz = () => {
           setOverallTimeRemaining(settings.overall_time_limit * 60);
         }
         
-        // Check if quiz start time has been reached
         if (settings.quiz_start_time) {
           const startTime = new Date(settings.quiz_start_time);
           const currentTime = new Date();
@@ -120,16 +132,13 @@ const Quiz = () => {
           if (currentTime < startTime) {
             setQuizStartTimeReached(false);
             
-            // Calculate time until quiz starts
             const timeUntil = getTimeUntilStart(startTime);
             setTimeUntilStart(timeUntil);
             
-            // Start a countdown to update the time remaining
             const timer = setInterval(() => {
               const newTimeUntil = getTimeUntilStart(startTime);
               setTimeUntilStart(newTimeUntil);
               
-              // Check if the time has been reached
               if (new Date() >= startTime) {
                 setQuizStartTimeReached(true);
                 clearInterval(timer);
@@ -284,6 +293,22 @@ const Quiz = () => {
     updatedUserAnswers[currentQuestion] = selectedAnswer;
     setUserAnswers(updatedUserAnswers);
 
+    if (questions[currentQuestion]?.question_type === 'written' && selectedAnswer) {
+      const questionId = questions[currentQuestion].id;
+      const existingAnswerIndex = writtenAnswers.findIndex(a => a.question_id === questionId);
+      
+      const newWrittenAnswers = [...writtenAnswers];
+      if (existingAnswerIndex >= 0) {
+        newWrittenAnswers[existingAnswerIndex].answer = selectedAnswer;
+      } else {
+        newWrittenAnswers.push({
+          question_id: questionId,
+          answer: selectedAnswer
+        });
+      }
+      setWrittenAnswers(newWrittenAnswers);
+    }
+
     if (currentQuestion + 1 < questions.length) {
       setCurrentQuestion(currentQuestion + 1);
       setSelectedAnswer(userAnswers[currentQuestion + 1]);
@@ -317,7 +342,7 @@ const Quiz = () => {
       setAnswers(finalAnswers);
       setQuizCompleted(true);
     }
-  }, [currentQuestion, questions, selectedAnswer, userAnswers]);
+  }, [currentQuestion, questions, selectedAnswer, userAnswers, writtenAnswers]);
   
   const handleSkipQuestion = () => {
     const updatedUserAnswers = [...userAnswers];
@@ -349,7 +374,10 @@ const Quiz = () => {
         .insert([{
           user_id: user.id,
           score: score,
-          total_questions: questions.length
+          total_questions: questions.length,
+          user_name: userName,
+          team_name: teamName,
+          written_answers: writtenAnswers
         }]);
 
       if (insertError) throw insertError;
@@ -374,6 +402,7 @@ const Quiz = () => {
       setQuizCompleted(false);
       setScore(0);
       setAnswers([]);
+      setWrittenAnswers([]);
       
       navigate('/');
     } catch (error) {
@@ -413,10 +442,30 @@ const Quiz = () => {
               <div className="space-y-4">
                 {allResults.map((result) => (
                   <div key={result.id} className="p-4 border rounded-lg bg-white">
+                    <p className="font-medium">
+                      {result.user_name && result.team_name ? 
+                        `${result.user_name} (${result.team_name})` : 
+                        'Anonymous User'}
+                    </p>
                     <p className="font-medium">Score: {result.score}/{result.total_questions}</p>
                     <p className="text-sm text-gray-600">
                       Completed: {new Date(result.completed_at).toLocaleDateString()}
                     </p>
+                    {result.written_answers && result.written_answers.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-sm font-medium">Written Answers:</p>
+                        <ul className="list-disc ml-4 text-sm text-gray-700">
+                          {result.written_answers.map((item, idx) => {
+                            const question = questions.find(q => q.id === item.question_id);
+                            return (
+                              <li key={idx} className="mt-1">
+                                <span className="font-medium">{question?.question || `Question ${idx+1}`}:</span> {item.answer}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

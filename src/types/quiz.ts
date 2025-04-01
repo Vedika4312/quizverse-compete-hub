@@ -19,6 +19,12 @@ export interface QuizResult {
   total_questions: number;
   completed_at: string;
   answers?: string[];
+  user_name?: string;
+  team_name?: string;
+  written_answers?: {
+    question_id: string;
+    answer: string;
+  }[];
 }
 
 export interface QuizSettings {
