@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -369,7 +370,8 @@ const Quiz = () => {
         throw new Error("You must be logged in to submit the quiz");
       }
 
-      const { error: insertError } = await supabase
+      // First, insert the quiz result to get its ID
+      const { data: quizResultData, error: insertError } = await supabase
         .from('quiz_results')
         .insert([{
           user_id: user.id,
@@ -377,10 +379,33 @@ const Quiz = () => {
           total_questions: questions.length,
           user_name: userName,
           team_name: teamName,
-          written_answers: writtenAnswers
-        }]);
+          written_answers: writtenAnswers // For backward compatibility
+        }])
+        .select();
 
       if (insertError) throw insertError;
+      
+      if (quizResultData && quizResultData.length > 0) {
+        const quizResultId = quizResultData[0].id;
+        
+        // Insert written answers into the new table if there are any
+        if (writtenAnswers.length > 0) {
+          const formattedWrittenAnswers = writtenAnswers.map(answer => ({
+            quiz_result_id: quizResultId,
+            question_id: answer.question_id,
+            answer: answer.answer
+          }));
+          
+          const { error: writtenAnswersError } = await supabase
+            .from('written_answers')
+            .insert(formattedWrittenAnswers);
+            
+          if (writtenAnswersError) {
+            console.error('Error inserting written answers:', writtenAnswersError);
+            // Continue execution even if this fails
+          }
+        }
+      }
 
       if (isAdmin) {
         const { data: results, error: resultsError } = await supabase

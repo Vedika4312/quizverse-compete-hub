@@ -53,22 +53,31 @@ export type Database = {
           completed_at: string | null
           id: string
           score: number
+          team_name: string | null
           total_questions: number
           user_id: string
+          user_name: string | null
+          written_answers: Json | null
         }
         Insert: {
           completed_at?: string | null
           id?: string
           score?: number
+          team_name?: string | null
           total_questions?: number
           user_id: string
+          user_name?: string | null
+          written_answers?: Json | null
         }
         Update: {
           completed_at?: string | null
           id?: string
           score?: number
+          team_name?: string | null
           total_questions?: number
           user_id?: string
+          user_name?: string | null
+          written_answers?: Json | null
         }
         Relationships: []
       }
@@ -166,6 +175,45 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      written_answers: {
+        Row: {
+          answer: string
+          created_at: string
+          id: string
+          question_id: string
+          quiz_result_id: string
+        }
+        Insert: {
+          answer: string
+          created_at?: string
+          id?: string
+          question_id: string
+          quiz_result_id: string
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          id?: string
+          question_id?: string
+          quiz_result_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "written_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "written_answers_quiz_result_id_fkey"
+            columns: ["quiz_result_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_results"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
