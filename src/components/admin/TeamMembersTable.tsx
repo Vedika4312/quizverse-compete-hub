@@ -26,7 +26,7 @@ const TeamMembersTable = () => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase
-        .from('team_members')
+        .from('company_members')
         .select(`
           id,
           team_id,
@@ -35,16 +35,16 @@ const TeamMembersTable = () => {
           email,
           is_captain,
           joined_at,
-          teams(name)
+          companies(name)
         `);
 
       if (error) throw error;
       
-      // Transform data to include team name
+      // Transform data to include company name
       const transformedData = (data || []).map(item => ({
         id: item.id,
         team_id: item.team_id,
-        team_name: item.teams?.name || 'Unknown Team',
+        team_name: item.companies?.name || 'Unknown Company',
         user_id: item.user_id,
         member_name: item.member_name,
         email: item.email,
@@ -72,7 +72,7 @@ const TeamMembersTable = () => {
   const updateMemberEmail = async (memberId: string, email: string) => {
     try {
       const { error } = await supabase
-        .from('team_members')
+        .from('company_members')
         .update({ email })
         .eq('id', memberId);
 
@@ -105,13 +105,13 @@ const TeamMembersTable = () => {
 
   return (
     <Card className="p-6">
-      <h2 className="text-2xl font-semibold mb-6">Team Members</h2>
+      <h2 className="text-2xl font-semibold mb-6">Company Members</h2>
       
       <div className="flex items-center mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
           <Input
-            placeholder="Search by name, team, or email"
+            placeholder="Search by name, company, or email"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -120,13 +120,13 @@ const TeamMembersTable = () => {
       </div>
       
       {isLoading ? (
-        <div className="text-center py-8">Loading team members...</div>
+        <div className="text-center py-8">Loading company members...</div>
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead>Team</TableHead>
+              <TableHead>Company</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Joined</TableHead>

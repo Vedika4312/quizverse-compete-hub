@@ -33,22 +33,22 @@ const Teams = () => {
       }
       setUserId(user.id);
 
-      const { data: team, error: teamError } = await supabase
-        .from('teams')
+      const { data: company, error: companyError } = await supabase
+        .from('companies')
         .select('*')
         .eq('captain_id', user.id)
         .maybeSingle();
 
-      if (teamError) {
-        console.error('Error checking team:', teamError);
+      if (companyError) {
+        console.error('Error checking company:', companyError);
         return;
       }
 
-      if (team) {
+      if (company) {
         setHasTeam(true);
         toast({
-          title: "Team Already Exists",
-          description: "You have already created a team",
+          title: "Company Already Exists",
+          description: "You have already created a company. You can only create one company per account.",
         });
       }
     };
@@ -119,9 +119,9 @@ const Teams = () => {
     setIsLoading(true);
 
     try {
-      // Insert team first
-      const { data: team, error: teamError } = await supabase
-        .from('teams')
+      // Insert company first
+      const { data: company, error: companyError } = await supabase
+        .from('companies')
         .insert({
           name: teamName,
           captain_id: userId,
@@ -129,18 +129,18 @@ const Teams = () => {
         .select()
         .single();
 
-      if (teamError) {
-        if (teamError.code === '23505') {
-          throw new Error("You can only create one team");
+      if (companyError) {
+        if (companyError.code === '23505') {
+          throw new Error("You can only create one company");
         }
-        throw teamError;
+        throw companyError;
       }
 
-      // Insert captain as a team member
+      // Insert captain as a company member
       const { error: captainError } = await supabase
-        .from('team_members')
+        .from('company_members')
         .insert({
-          team_id: team.id,
+          team_id: company.id,
           member_name: captainName,
           user_id: userId,
           is_captain: true
@@ -148,7 +148,7 @@ const Teams = () => {
 
       if (captainError) throw captainError;
 
-      // Insert other team members if they exist
+      // Insert other company members if they exist
       if (members.length > 0) {
         const validMembers = members.filter(member => member.name && member.email);
         
@@ -156,9 +156,9 @@ const Teams = () => {
           // Insert each member individually to avoid batch insert issues
           for (const member of validMembers) {
             const { error: memberError } = await supabase
-              .from('team_members')
+              .from('company_members')
               .insert({
-                team_id: team.id,
+                team_id: company.id,
                 member_name: member.name,
                 user_id: userId,
                 is_captain: false
@@ -175,7 +175,7 @@ const Teams = () => {
       setHasTeam(true);
       toast({
         title: "Success!",
-        description: "Team registration completed successfully",
+        description: "Company registration completed successfully",
       });
 
       navigate('/');

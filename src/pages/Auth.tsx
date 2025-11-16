@@ -23,12 +23,12 @@ const Auth = () => {
 
     try {
       if (isSignUp) {
-        // First check if username is already taken
+        // First check if username is already taken in candidate_profiles
         if (username.trim()) {
           const { data: existingUser } = await supabase
-            .from('profiles')
-            .select('username')
-            .eq('username', username)
+            .from('candidate_profiles')
+            .select('full_name')
+            .eq('full_name', username)
             .maybeSingle();
           
           if (existingUser) {
@@ -37,7 +37,7 @@ const Auth = () => {
         }
 
         // If username is unique, proceed with signup
-        const { error } = await supabase.auth.signUp({
+        const { data: authData, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -47,6 +47,21 @@ const Auth = () => {
           },
         });
         if (error) throw error;
+
+        // Create candidate profile
+        if (authData.user) {
+          const { error: profileError } = await supabase
+            .from('candidate_profiles')
+            .insert({
+              id: authData.user.id,
+              full_name: username,
+              email: email,
+            });
+          
+          if (profileError) {
+            console.error('Error creating profile:', profileError);
+          }
+        }
         
         // Show success message and redirect to index page immediately
         toast({

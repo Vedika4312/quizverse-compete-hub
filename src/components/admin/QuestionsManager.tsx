@@ -50,7 +50,7 @@ const QuestionsManager = () => {
         created_at: item.created_at || new Date().toISOString(),
         time_limit: item.time_limit,
         quiz_id: undefined,
-        question_type: item.question_type || "multiple_choice"
+        question_type: (item.question_type || "multiple_choice") as "multiple_choice" | "written"
       }));
       
       setQuestions(transformedData);
