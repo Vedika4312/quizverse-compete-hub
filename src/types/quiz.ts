@@ -21,10 +21,7 @@ export interface QuizResult {
   answers?: string[];
   user_name?: string;
   team_name?: string;
-  written_answers?: {
-    question_id: string;
-    answer: string;
-  }[];
+  written_answers?: any; // JSONB type from database
 }
 
 export interface QuizSettings {

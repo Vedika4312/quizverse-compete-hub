@@ -47,15 +47,15 @@ const Quiz = () => {
         return;
       }
 
-      const { data: teamMemberData, error: teamMemberError } = await supabase
-        .from('team_members')
-        .select('member_name, teams:team_id(name)')
+      const { data: companyMemberData, error: companyMemberError } = await supabase
+        .from('company_members')
+        .select('member_name, companies:team_id(name)')
         .eq('user_id', user.id)
         .single();
 
-      if (!teamMemberError && teamMemberData) {
-        setUserName(teamMemberData.member_name || "");
-        setTeamName(teamMemberData.teams?.name || "");
+      if (!companyMemberError && companyMemberData) {
+        setUserName(companyMemberData.member_name || "");
+        setTeamName(companyMemberData.companies?.name || "");
       }
 
       const { data, error } = await supabase.rpc('is_admin', { user_id: user.id });

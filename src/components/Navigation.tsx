@@ -31,8 +31,8 @@ const Navigation = () => {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <Link to="/" className="flex items-center space-x-2">
-            <Trophy className="w-6 h-6" />
-            <span className="font-semibold text-lg">QuizVerse</span>
+            <Trophy className="w-6 h-6 text-primary" />
+            <span className="font-semibold text-lg">TechInterview Pro</span>
           </Link>
           
           <div className="flex items-center space-x-8">
@@ -43,7 +43,7 @@ const Navigation = () => {
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>Teams</span>
+              <span>Companies</span>
             </Link>
             <Link 
               to="/admin" 
