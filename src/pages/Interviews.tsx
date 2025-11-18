@@ -20,8 +20,62 @@ const Interviews = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchInterviews();
-  }, []);
+    const setupRealtimeAndFetch = async () => {
+      await fetchInterviews();
+      
+      // Set up real-time subscription for new interviews
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const channel = supabase
+        .channel('interview-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'interview_sessions',
+            filter: `candidate_id=eq.${user.id}`,
+          },
+          (payload) => {
+            console.log('New interview scheduled:', payload);
+            const newInterview = payload.new as InterviewSession;
+            
+            setInterviews((prev) => [newInterview, ...prev]);
+            
+            toast({
+              title: "New Interview Scheduled! 📅",
+              description: `Your interview "${newInterview.title}" has been scheduled.`,
+            });
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'interview_sessions',
+          },
+          (payload) => {
+            console.log('Interview updated:', payload);
+            const updatedInterview = payload.new as InterviewSession;
+            
+            setInterviews((prev) =>
+              prev.map((interview) =>
+                interview.id === updatedInterview.id ? updatedInterview : interview
+              )
+            );
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    };
+
+    setupRealtimeAndFetch();
+  }, [toast]);
 
   const fetchInterviews = async () => {
     try {
