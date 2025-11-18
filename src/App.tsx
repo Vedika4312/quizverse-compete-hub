@@ -13,6 +13,7 @@ import Admin from "./pages/Admin";
 import Quiz from "./pages/Quiz";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import InterviewRoom from "./pages/InterviewRoom";
 
 const queryClient = new QueryClient();
 
@@ -109,6 +110,14 @@ const App = () => (
                     <Admin />
                   </div>
                 </>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/interview/:sessionId"
+            element={
+              <ProtectedRoute>
+                <InterviewRoom />
               </ProtectedRoute>
             }
           />
