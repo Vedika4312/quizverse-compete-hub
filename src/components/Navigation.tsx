@@ -1,5 +1,5 @@
 
-import { Trophy, Users, Database, LogOut } from "lucide-react";
+import { Trophy, Users, Database, LogOut, Calendar } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,6 +36,15 @@ const Navigation = () => {
           </Link>
           
           <div className="flex items-center space-x-8">
+            <Link 
+              to="/interviews" 
+              className={`flex items-center space-x-1 transition-colors hover:text-primary ${
+                isActive("/interviews") ? "text-primary" : "text-gray-600"
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              <span>Interviews</span>
+            </Link>
             <Link 
               to="/teams" 
               className={`flex items-center space-x-1 transition-colors hover:text-primary ${

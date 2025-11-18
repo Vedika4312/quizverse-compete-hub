@@ -14,6 +14,7 @@ import Quiz from "./pages/Quiz";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import InterviewRoom from "./pages/InterviewRoom";
+import Interviews from "./pages/Interviews";
 
 const queryClient = new QueryClient();
 
@@ -108,6 +109,19 @@ const App = () => (
                   <Navigation />
                   <div className="pt-16">
                     <Admin />
+                  </div>
+                </>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/interviews"
+            element={
+              <ProtectedRoute>
+                <>
+                  <Navigation />
+                  <div className="pt-16">
+                    <Interviews />
                   </div>
                 </>
               </ProtectedRoute>
