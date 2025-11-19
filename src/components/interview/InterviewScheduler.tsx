@@ -14,6 +14,11 @@ interface CandidateProfile {
   id: string;
   full_name: string;
   email: string;
+  phone?: string;
+  skills?: string[];
+  experience_years?: number;
+  current_company?: string;
+  preferred_role?: string;
 }
 
 interface Company {
@@ -47,7 +52,7 @@ const InterviewScheduler = () => {
     try {
       const { data, error } = await supabase
         .from('candidate_profiles')
-        .select('id, full_name, email')
+        .select('id, full_name, email, phone, skills, experience_years, current_company, preferred_role')
         .order('full_name');
 
       if (error) throw error;
@@ -158,7 +163,10 @@ const InterviewScheduler = () => {
               <SelectContent>
                 {candidates.map((candidate) => (
                   <SelectItem key={candidate.id} value={candidate.id}>
-                    {candidate.full_name} ({candidate.email})
+                    {candidate.full_name}
+                    {candidate.current_company && candidate.experience_years !== undefined
+                      ? ` - ${candidate.current_company} (${candidate.experience_years} yrs)`
+                      : ` (${candidate.email})`}
                   </SelectItem>
                 ))}
               </SelectContent>
