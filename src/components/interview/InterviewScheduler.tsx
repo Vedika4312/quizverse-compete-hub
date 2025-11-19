@@ -172,14 +172,13 @@ const InterviewScheduler = () => {
               Company (Optional)
             </Label>
             <Select
-              value={formData.company_id}
+              value={formData.company_id || undefined}
               onValueChange={(value) => setFormData({ ...formData, company_id: value })}
             >
               <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Choose a company" />
+                <SelectValue placeholder="Choose a company (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
                 {companies.map((company) => (
                   <SelectItem key={company.id} value={company.id}>
                     {company.name}
