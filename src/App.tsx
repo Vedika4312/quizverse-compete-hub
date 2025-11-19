@@ -15,6 +15,7 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import InterviewRoom from "./pages/InterviewRoom";
 import Interviews from "./pages/Interviews";
+import CandidateProfile from "./pages/CandidateProfile";
 
 const queryClient = new QueryClient();
 
@@ -122,6 +123,19 @@ const App = () => (
                   <Navigation />
                   <div className="pt-16">
                     <Interviews />
+                  </div>
+                </>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <>
+                  <Navigation />
+                  <div className="pt-16">
+                    <CandidateProfile />
                   </div>
                 </>
               </ProtectedRoute>

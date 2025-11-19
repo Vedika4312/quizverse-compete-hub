@@ -1,5 +1,5 @@
 
-import { Trophy, Users, Database, LogOut, Calendar } from "lucide-react";
+import { Trophy, Users, Database, LogOut, Calendar, UserCircle } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,6 +44,15 @@ const Navigation = () => {
             >
               <Calendar className="w-4 h-4" />
               <span>Interviews</span>
+            </Link>
+            <Link 
+              to="/profile" 
+              className={`flex items-center space-x-1 transition-colors hover:text-primary ${
+                isActive("/profile") ? "text-primary" : "text-gray-600"
+              }`}
+            >
+              <UserCircle className="w-4 h-4" />
+              <span>My Profile</span>
             </Link>
             <Link 
               to="/teams" 
