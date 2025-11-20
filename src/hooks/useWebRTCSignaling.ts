@@ -50,6 +50,19 @@ export const useWebRTCSignaling = ({
   const iceCandidatesQueue = useRef<RTCIceCandidate[]>([]);
   const offerCreatedRef = useRef(false);
   const remoteReadyRef = useRef(false);
+  const isInitializingRef = useRef(false);
+  
+  // Stabilize callbacks with refs to prevent effect re-runs
+  const onRemoteStreamRef = useRef(onRemoteStream);
+  const onConnectionStateChangeRef = useRef(onConnectionStateChange);
+  
+  useEffect(() => {
+    onRemoteStreamRef.current = onRemoteStream;
+  }, [onRemoteStream]);
+  
+  useEffect(() => {
+    onConnectionStateChangeRef.current = onConnectionStateChange;
+  }, [onConnectionStateChange]);
 
   const sendSignal = useCallback(async (type: string, payload: any) => {
     if (!channelRef.current) {
@@ -212,12 +225,13 @@ export const useWebRTCSignaling = ({
       return;
     }
 
-    // Prevent creating multiple peer connections
-    if (peerConnectionRef.current) {
-      console.log('Peer connection already exists, skipping creation');
+    // Prevent creating multiple peer connections with a guard flag
+    if (peerConnectionRef.current || isInitializingRef.current) {
+      console.log('Peer connection already exists or is initializing, skipping');
       return;
     }
 
+    isInitializingRef.current = true;
     console.log('Initializing WebRTC connection as', role);
 
     // Create peer connection inline to avoid dependency issues
@@ -291,13 +305,13 @@ export const useWebRTCSignaling = ({
       console.log('Received remote track:', event.track.kind, event.streams.length);
       if (event.streams && event.streams[0]) {
         console.log('Setting remote stream');
-        onRemoteStream(event.streams[0]);
+        onRemoteStreamRef.current(event.streams[0]);
       }
     };
 
     pc.onconnectionstatechange = () => {
       console.log('Connection state:', pc.connectionState);
-      onConnectionStateChange(pc.connectionState);
+      onConnectionStateChangeRef.current(pc.connectionState);
 
       if (pc.connectionState === 'failed') {
         console.error('Connection failed, attempting restart');
@@ -484,7 +498,7 @@ export const useWebRTCSignaling = ({
 
     return () => {
       console.log('Cleaning up WebRTC connection');
-      // Reset offer state and ICE queue so a fresh connection can be established
+      isInitializingRef.current = false;
       offerCreatedRef.current = false;
       remoteReadyRef.current = false;
       channelReadyRef.current = false;
@@ -501,7 +515,7 @@ export const useWebRTCSignaling = ({
         peerConnectionRef.current = null;
       }
     };
-  }, [sessionId, userId, role, localStream, onRemoteStream, onConnectionStateChange]);
+  }, [sessionId, userId, role, localStream]);
 
   return { peerConnection: peerConnectionRef.current };
 };
