@@ -37,15 +37,15 @@ export const useWebRTCSignaling = ({
       console.log('Channel not ready, cannot send signal:', type);
       return;
     }
-    
-    console.log(`Sending ${type} signal:`, payload);
-    
+
     const message: SignalingMessage = {
       type: type as any,
       payload,
       from: userId,
       role,
     };
+
+    console.log('Sending signal:', message);
 
     await channelRef.current.send({
       type: 'broadcast',
@@ -90,7 +90,7 @@ export const useWebRTCSignaling = ({
     pc.onconnectionstatechange = () => {
       console.log('Connection state:', pc.connectionState);
       onConnectionStateChange(pc.connectionState);
-      
+
       if (pc.connectionState === 'failed') {
         console.error('Connection failed, attempting restart');
         pc.restartIce();
@@ -100,13 +100,12 @@ export const useWebRTCSignaling = ({
     return pc;
   }, [sendSignal, onRemoteStream, onConnectionStateChange]);
 
-  // Process queued ICE candidates
   const processIceCandidatesQueue = useCallback(async () => {
     const pc = peerConnectionRef.current;
     if (!pc || !pc.remoteDescription) return;
 
     console.log('Processing queued ICE candidates:', iceCandidatesQueue.current.length);
-    
+
     while (iceCandidatesQueue.current.length > 0) {
       const candidate = iceCandidatesQueue.current.shift();
       if (candidate) {
@@ -120,7 +119,6 @@ export const useWebRTCSignaling = ({
     }
   }, []);
 
-  // Create offer (for interviewer)
   const createOffer = useCallback(async () => {
     const pc = peerConnectionRef.current;
     if (!pc || !isChannelReady) {
@@ -134,10 +132,10 @@ export const useWebRTCSignaling = ({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true,
       });
-      
+
       await pc.setLocalDescription(offer);
       console.log('Local description set, sending offer');
-      
+
       await sendSignal('offer', {
         type: offer.type,
         sdp: offer.sdp,
@@ -158,7 +156,6 @@ export const useWebRTCSignaling = ({
     const pc = createPeerConnection();
     peerConnectionRef.current = pc;
 
-    // Add local tracks to peer connection
     console.log('Adding local tracks:', localStream.getTracks().length);
     localStream.getTracks().forEach((track) => {
       console.log('Adding track:', track.kind, track.enabled);
@@ -173,7 +170,7 @@ export const useWebRTCSignaling = ({
 
     channel
       .on('broadcast', { event: 'offer' }, async ({ payload }: { payload: SignalingMessage }) => {
-        console.log('Received offer from:', payload.from, payload.role);
+        console.log('Received offer message:', payload);
         if (payload.from === userId) return;
 
         const pc = peerConnectionRef.current;
@@ -181,15 +178,14 @@ export const useWebRTCSignaling = ({
 
         try {
           await pc.setRemoteDescription(new RTCSessionDescription(payload.payload));
-          console.log('Remote description set, creating answer');
-          
-          // Process queued ICE candidates
+          console.log('Remote description set from offer, creating answer');
+
           await processIceCandidatesQueue();
-          
+
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
-          console.log('Local description set, sending answer');
-          
+          console.log('Local description set from answer, sending');
+
           await sendSignal('answer', {
             type: answer.type,
             sdp: answer.sdp,
@@ -199,7 +195,7 @@ export const useWebRTCSignaling = ({
         }
       })
       .on('broadcast', { event: 'answer' }, async ({ payload }: { payload: SignalingMessage }) => {
-        console.log('Received answer from:', payload.from, payload.role);
+        console.log('Received answer message:', payload);
         if (payload.from === userId) return;
 
         const pc = peerConnectionRef.current;
@@ -208,8 +204,7 @@ export const useWebRTCSignaling = ({
         try {
           await pc.setRemoteDescription(new RTCSessionDescription(payload.payload));
           console.log('Remote description set from answer');
-          
-          // Process queued ICE candidates
+
           await processIceCandidatesQueue();
         } catch (error) {
           console.error('Error handling answer:', error);
@@ -223,8 +218,7 @@ export const useWebRTCSignaling = ({
 
         try {
           const candidate = new RTCIceCandidate(payload.payload);
-          
-          // If we don't have remote description yet, queue the candidate
+
           if (!pc.remoteDescription) {
             console.log('Queueing ICE candidate (no remote description yet)');
             iceCandidatesQueue.current.push(candidate);
@@ -238,8 +232,7 @@ export const useWebRTCSignaling = ({
       })
       .on('broadcast', { event: 'user-ready' }, ({ payload }: { payload: SignalingMessage }) => {
         console.log('User ready:', payload.from, payload.role);
-        
-        // If we're the interviewer and candidate is ready, create offer
+
         if (role === 'interviewer' && payload.role === 'candidate') {
           console.log('Candidate is ready, creating offer');
           setTimeout(() => createOffer(), 1000);
@@ -247,15 +240,13 @@ export const useWebRTCSignaling = ({
       })
       .subscribe(async (status) => {
         console.log('Channel subscription status:', status);
-        
+
         if (status === 'SUBSCRIBED') {
           setIsChannelReady(true);
           console.log('Channel ready, announcing presence');
-          
-          // Announce that we're ready
+
           await sendSignal('user-ready', { ready: true });
-          
-          // If we're the interviewer, wait a bit then create offer
+
           if (role === 'interviewer') {
             console.log('Interviewer role: will create offer after delay');
             setTimeout(() => createOffer(), 2000);
