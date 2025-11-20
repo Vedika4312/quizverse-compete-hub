@@ -31,6 +31,8 @@ export const useWebRTCSignaling = ({
   const channelRef = useRef<RealtimeChannel | null>(null);
   const [isChannelReady, setIsChannelReady] = useState(false);
   const iceCandidatesQueue = useRef<RTCIceCandidate[]>([]);
+  const offerCreatedRef = useRef(false);
+  const remoteReadyRef = useRef(false);
 
   const sendSignal = useCallback(async (type: string, payload: any) => {
     if (!channelRef.current) {
@@ -126,8 +128,15 @@ export const useWebRTCSignaling = ({
       return;
     }
 
+    if (offerCreatedRef.current) {
+      console.log('Offer already created, skipping');
+      return;
+    }
+
     try {
       console.log('Creating offer...');
+      offerCreatedRef.current = true;
+      
       const offer = await pc.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true,
@@ -142,6 +151,7 @@ export const useWebRTCSignaling = ({
       });
     } catch (error) {
       console.error('Error creating offer:', error);
+      offerCreatedRef.current = false;
     }
   }, [isChannelReady, sendSignal]);
 
@@ -234,8 +244,13 @@ export const useWebRTCSignaling = ({
         console.log('User ready:', payload.from, payload.role);
 
         if (role === 'interviewer' && payload.role === 'candidate') {
-          console.log('Candidate is ready, creating offer');
-          setTimeout(() => createOffer(), 1000);
+          console.log('Candidate is ready, both participants ready');
+          remoteReadyRef.current = true;
+          
+          if (isChannelReady && !offerCreatedRef.current) {
+            console.log('Creating offer now that both users are ready');
+            setTimeout(() => createOffer(), 500);
+          }
         }
       })
       .subscribe(async (status) => {
@@ -247,10 +262,7 @@ export const useWebRTCSignaling = ({
 
           await sendSignal('user-ready', { ready: true });
 
-          if (role === 'interviewer') {
-            console.log('Interviewer role: will create offer after delay');
-            setTimeout(() => createOffer(), 2000);
-          }
+          console.log('Waiting for remote user to be ready...');
         }
       });
 
