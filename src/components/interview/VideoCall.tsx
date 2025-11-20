@@ -46,6 +46,11 @@ const VideoCall = ({ sessionId, userId, role, onEndCall }: VideoCallProps) => {
         setLocalStream(stream);
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
+          localVideoRef.current.onloadedmetadata = () => {
+            localVideoRef.current?.play().catch(e => 
+              console.error('Error playing local video:', e)
+            );
+          };
         }
         setPermissionError(null);
       } catch (error: any) {
@@ -69,10 +74,16 @@ const VideoCall = ({ sessionId, userId, role, onEndCall }: VideoCallProps) => {
   }, []);
 
   const handleRemoteStream = (stream: MediaStream) => {
-    console.log('Setting remote stream');
+    console.log('Setting remote stream with', stream.getTracks().length, 'tracks');
     setRemoteStream(stream);
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = stream;
+      remoteVideoRef.current.onloadedmetadata = () => {
+        console.log('Remote video metadata loaded, attempting play');
+        remoteVideoRef.current?.play().catch(e => 
+          console.error('Error playing remote video:', e)
+        );
+      };
     }
   };
 
@@ -84,10 +95,12 @@ const VideoCall = ({ sessionId, userId, role, onEndCall }: VideoCallProps) => {
       setConnectionState({ status: 'failed', error: 'Connection failed' });
     } else if (state === 'disconnected') {
       setConnectionState({ status: 'disconnected' });
+    } else if (state === 'connecting') {
+      setConnectionState({ status: 'connecting' });
     }
   };
 
-  useWebRTCSignaling({
+  const { peerConnection } = useWebRTCSignaling({
     sessionId,
     userId,
     role,
@@ -95,6 +108,11 @@ const VideoCall = ({ sessionId, userId, role, onEndCall }: VideoCallProps) => {
     onRemoteStream: handleRemoteStream,
     onConnectionStateChange: handleConnectionStateChange,
   });
+
+  const retryConnection = () => {
+    console.log('Retrying connection...');
+    window.location.reload();
+  };
 
   const toggleVideo = () => {
     if (localStream) {
@@ -142,6 +160,20 @@ const VideoCall = ({ sessionId, userId, role, onEndCall }: VideoCallProps) => {
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{permissionError}</AlertDescription>
+            </Alert>
+          </div>
+        )}
+        
+        {connectionState.status === 'failed' && (
+          <div className="absolute top-16 left-4 right-4 z-10">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="flex items-center justify-between">
+                <span>Connection failed. Please try again.</span>
+                <Button onClick={retryConnection} variant="outline" size="sm">
+                  Retry
+                </Button>
+              </AlertDescription>
             </Alert>
           </div>
         )}
