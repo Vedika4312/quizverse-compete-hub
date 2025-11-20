@@ -27,6 +27,11 @@ const VideoCall = ({ sessionId, userId, role, onEndCall }: VideoCallProps) => {
     status: 'idle',
   });
   const [permissionError, setPermissionError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const MAX_RETRIES = 3;
+  const CONNECTION_TIMEOUT = 15000; // 15 seconds
 
   const { participants, updateMediaState } = useInterviewPresence(sessionId, userId, role);
 
@@ -89,16 +94,60 @@ const VideoCall = ({ sessionId, userId, role, onEndCall }: VideoCallProps) => {
 
   const handleConnectionStateChange = (state: RTCPeerConnectionState) => {
     console.log('Connection state changed:', state);
+    
+    // Clear any existing timeout
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
+    
     if (state === 'connected') {
       setConnectionState({ status: 'connected' });
+      setRetryCount(0); // Reset retry count on successful connection
     } else if (state === 'failed') {
       setConnectionState({ status: 'failed', error: 'Connection failed' });
     } else if (state === 'disconnected') {
       setConnectionState({ status: 'disconnected' });
     } else if (state === 'connecting') {
       setConnectionState({ status: 'connecting' });
+      
+      // Set timeout for connection attempt
+      connectionTimeoutRef.current = setTimeout(() => {
+        if (peerConnection?.connectionState !== 'connected') {
+          console.error('Connection timeout after 15 seconds');
+          setConnectionState({ 
+            status: 'failed', 
+            error: 'Connection timeout. Please check your network.' 
+          });
+        }
+      }, CONNECTION_TIMEOUT);
     }
   };
+
+  // Monitor connection state and implement retry logic
+  useEffect(() => {
+    if (connectionState.status === 'failed' && retryCount < MAX_RETRIES) {
+      const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 5000); // Exponential backoff
+      console.log(`Will retry connection in ${retryDelay}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+      
+      const retryTimer = setTimeout(() => {
+        console.log(`Retrying connection (${retryCount + 1}/${MAX_RETRIES})`);
+        setRetryCount(prev => prev + 1);
+        window.location.reload();
+      }, retryDelay);
+      
+      return () => clearTimeout(retryTimer);
+    }
+  }, [connectionState.status, retryCount]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const { peerConnection } = useWebRTCSignaling({
     sessionId,
@@ -110,8 +159,11 @@ const VideoCall = ({ sessionId, userId, role, onEndCall }: VideoCallProps) => {
   });
 
   const retryConnection = () => {
-    console.log('Retrying connection...');
-    window.location.reload();
+    if (retryCount < MAX_RETRIES) {
+      console.log(`Manual retry (${retryCount + 1}/${MAX_RETRIES})`);
+      setRetryCount(prev => prev + 1);
+      window.location.reload();
+    }
   };
 
   const toggleVideo = () => {
@@ -169,10 +221,16 @@ const VideoCall = ({ sessionId, userId, role, onEndCall }: VideoCallProps) => {
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription className="flex items-center justify-between">
-                <span>Connection failed. Please try again.</span>
-                <Button onClick={retryConnection} variant="outline" size="sm">
-                  Retry
-                </Button>
+                <span>
+                  {connectionState.error || 'Connection failed.'} 
+                  {retryCount < MAX_RETRIES && ` Retrying... (${retryCount}/${MAX_RETRIES})`}
+                  {retryCount >= MAX_RETRIES && ' Maximum retries reached.'}
+                </span>
+                {retryCount < MAX_RETRIES && (
+                  <Button onClick={retryConnection} variant="outline" size="sm">
+                    Retry Now
+                  </Button>
+                )}
               </AlertDescription>
             </Alert>
           </div>
