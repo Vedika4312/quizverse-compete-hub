@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import CodeCompiler from "@/components/CodeCompiler";
+// Using Daily.co for video calls instead of Jitsi
 import DailyVideoCall from "@/components/interview/DailyVideoCall";
 import InterviewControls from "@/components/interview/InterviewControls";
 import InterviewNotes from "@/components/interview/InterviewNotes";
