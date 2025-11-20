@@ -2,7 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import CodeCompiler from "@/components/CodeCompiler";
-import VideoCall from "@/components/interview/VideoCall";
+import JitsiVideoCall from "@/components/interview/JitsiVideoCall";
 import InterviewControls from "@/components/interview/InterviewControls";
 import InterviewNotes from "@/components/interview/InterviewNotes";
 import { useToast } from "@/hooks/use-toast";
@@ -181,7 +181,7 @@ const InterviewRoom = () => {
               {/* Video Call */}
               <ResizablePanel defaultSize={50} minSize={30}>
                 <div className="h-full p-4 bg-background">
-                  <VideoCall
+                  <JitsiVideoCall
                     sessionId={sessionId!}
                     userId={userId}
                     role={userRole}
