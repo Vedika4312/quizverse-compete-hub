@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { useWebRTCSignaling } from '@/hooks/useWebRTCSignaling';
 import { useInterviewPresence } from '@/hooks/useInterviewPresence';
 import { ConnectionState } from '@/types/webrtc';
+import ConnectionDiagnostics from './ConnectionDiagnostics';
 
 interface VideoCallProps {
   sessionId: string;
@@ -236,11 +237,16 @@ const VideoCall = ({ sessionId, userId, role, onEndCall }: VideoCallProps) => {
           </div>
         )}
 
-        {/* Connection Status */}
-        <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
-          {getConnectionBadge()}
-          {participants.length > 0 && (
-            <Badge variant="outline">{participants.length} participant{participants.length !== 1 ? 's' : ''}</Badge>
+        {/* Connection Status and Diagnostics */}
+        <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-2">
+          <div className="flex items-center gap-2">
+            {getConnectionBadge()}
+            {participants.length > 0 && (
+              <Badge variant="outline">{participants.length} participant{participants.length !== 1 ? 's' : ''}</Badge>
+            )}
+          </div>
+          {connectionState.status === 'connected' && peerConnection && (
+            <ConnectionDiagnostics peerConnection={peerConnection} />
           )}
         </div>
 

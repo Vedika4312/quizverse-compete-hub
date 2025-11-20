@@ -77,15 +77,49 @@ export const useWebRTCSignaling = ({
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        console.log('New ICE candidate:', event.candidate.candidate);
-        sendSignal('ice-candidate', event.candidate.toJSON());
+        const candidate = event.candidate;
+        // Log candidate type to verify TURN usage
+        const candidateType = candidate.candidate.includes('typ relay') ? 'TURN (relay)' :
+                             candidate.candidate.includes('typ srflx') ? 'STUN (server reflexive)' :
+                             candidate.candidate.includes('typ host') ? 'Host (local)' :
+                             'Unknown';
+        
+        console.log(`🔵 ICE Candidate [${candidateType}]:`, candidate.candidate);
+        sendSignal('ice-candidate', candidate.toJSON());
       } else {
-        console.log('ICE gathering complete');
+        console.log('✅ ICE gathering complete');
       }
     };
 
     pc.oniceconnectionstatechange = () => {
-      console.log('ICE connection state:', pc.iceConnectionState);
+      console.log('🔌 ICE connection state:', pc.iceConnectionState);
+      
+      // Log the selected candidate pair when connected
+      if (pc.iceConnectionState === 'connected') {
+        pc.getStats(null).then(stats => {
+          stats.forEach(report => {
+            if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+              console.log('✅ Connected using candidate pair:', report);
+              
+              // Get local and remote candidates
+              stats.forEach(stat => {
+                if (stat.id === report.localCandidateId) {
+                  const localType = stat.candidateType === 'relay' ? '🔄 TURN' :
+                                  stat.candidateType === 'srflx' ? '🌐 STUN' :
+                                  '🏠 Direct';
+                  console.log(`Local candidate: ${localType} (${stat.candidateType})`, stat);
+                }
+                if (stat.id === report.remoteCandidateId) {
+                  const remoteType = stat.candidateType === 'relay' ? '🔄 TURN' :
+                                   stat.candidateType === 'srflx' ? '🌐 STUN' :
+                                   '🏠 Direct';
+                  console.log(`Remote candidate: ${remoteType} (${stat.candidateType})`, stat);
+                }
+              });
+            }
+          });
+        });
+      }
     };
 
     pc.onicegatheringstatechange = () => {
