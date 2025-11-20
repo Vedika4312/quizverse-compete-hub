@@ -46,8 +46,10 @@ export const useWebRTCSignaling = ({
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const [isChannelReady, setIsChannelReady] = useState(false);
+  const channelReadyRef = useRef(false);
   const iceCandidatesQueue = useRef<RTCIceCandidate[]>([]);
   const offerCreatedRef = useRef(false);
+  const remoteReadyRef = useRef(false);
 
   const sendSignal = useCallback(async (type: string, payload: any) => {
     if (!channelRef.current) {
@@ -172,8 +174,8 @@ export const useWebRTCSignaling = ({
 
   const createOffer = useCallback(async () => {
     const pc = peerConnectionRef.current;
-    if (!pc || !isChannelReady) {
-      console.log('Not ready to create offer');
+    if (!pc || !channelReadyRef.current) {
+      console.log('Not ready to create offer (PC or channel not ready)');
       return;
     }
 
@@ -202,7 +204,7 @@ export const useWebRTCSignaling = ({
       console.error('Error creating offer:', error);
       offerCreatedRef.current = false;
     }
-  }, [isChannelReady, sendSignal]);
+  }, [sendSignal]);
 
   useEffect(() => {
     if (!localStream) {
@@ -289,19 +291,33 @@ export const useWebRTCSignaling = ({
           console.error('Error adding ICE candidate:', error);
         }
       })
+      .on('broadcast', { event: 'user-ready' }, ({ payload }: { payload: SignalingMessage }) => {
+        console.log('User ready:', payload.from, payload.role);
+
+        if (role === 'interviewer' && payload.role === 'candidate') {
+          console.log('Candidate is ready, interviewer will create offer when channel is ready');
+          remoteReadyRef.current = true;
+
+          if (channelReadyRef.current && !offerCreatedRef.current) {
+            console.log('Both sides ready, creating offer');
+            createOffer();
+          }
+        }
+      })
       .subscribe(async (status) => {
         console.log('Channel subscription status:', status);
 
         if (status === 'SUBSCRIBED') {
           setIsChannelReady(true);
-          console.log('Channel ready');
+          channelReadyRef.current = true;
+          console.log('Channel ready, announcing presence');
 
-          // Interviewer creates offer immediately when channel is ready
-          if (role === 'interviewer') {
-            console.log('Interviewer: creating offer immediately');
-            setTimeout(() => createOffer(), 100); // Small delay to ensure state updates
+          await sendSignal('user-ready', { ready: true });
+
+          if (role === 'candidate') {
+            console.log('Candidate: waiting for offer from interviewer');
           } else {
-            console.log('Candidate: waiting for offer');
+            console.log('Interviewer: waiting for candidate to be ready');
           }
         }
       });
