@@ -212,9 +212,99 @@ export const useWebRTCSignaling = ({
       return;
     }
 
+    // Prevent creating multiple peer connections
+    if (peerConnectionRef.current) {
+      console.log('Peer connection already exists, skipping creation');
+      return;
+    }
+
     console.log('Initializing WebRTC connection as', role);
 
-    const pc = createPeerConnection();
+    // Create peer connection inline to avoid dependency issues
+    const pc = new RTCPeerConnection(ICE_SERVERS);
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        const candidate = event.candidate;
+        const candidateType = candidate.candidate.includes('typ relay') ? 'TURN (relay)' :
+                             candidate.candidate.includes('typ srflx') ? 'STUN (server reflexive)' :
+                             candidate.candidate.includes('typ host') ? 'Host (local)' :
+                             'Unknown';
+        
+        console.log(`🔵 ICE Candidate [${candidateType}]:`, candidate.candidate);
+        
+        if (channelRef.current) {
+          channelRef.current.send({
+            type: 'broadcast',
+            event: 'ice-candidate',
+            payload: {
+              type: 'ice-candidate',
+              payload: candidate.toJSON(),
+              from: userId,
+              role,
+            },
+          });
+        }
+      } else {
+        console.log('✅ ICE gathering complete');
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      console.log('🔌 ICE connection state:', pc.iceConnectionState);
+      
+      if (pc.iceConnectionState === 'connected') {
+        pc.getStats(null).then(stats => {
+          stats.forEach(report => {
+            if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+              console.log('✅ Connected using candidate pair:', report);
+              
+              stats.forEach(stat => {
+                if (stat.id === report.localCandidateId) {
+                  const localType = stat.candidateType === 'relay' ? '🔄 TURN' :
+                                  stat.candidateType === 'srflx' ? '🌐 STUN' :
+                                  '🏠 Direct';
+                  console.log(`Local candidate: ${localType} (${stat.candidateType})`, stat);
+                }
+                if (stat.id === report.remoteCandidateId) {
+                  const remoteType = stat.candidateType === 'relay' ? '🔄 TURN' :
+                                   stat.candidateType === 'srflx' ? '🌐 STUN' :
+                                   '🏠 Direct';
+                  console.log(`Remote candidate: ${remoteType} (${stat.candidateType})`, stat);
+                }
+              });
+            }
+          });
+        });
+      }
+    };
+
+    pc.onicegatheringstatechange = () => {
+      console.log('ICE gathering state:', pc.iceGatheringState);
+    };
+
+    pc.onsignalingstatechange = () => {
+      console.log('Signaling state:', pc.signalingState);
+    };
+
+    pc.ontrack = (event) => {
+      console.log('Received remote track:', event.track.kind, event.streams.length);
+      if (event.streams && event.streams[0]) {
+        console.log('Setting remote stream');
+        onRemoteStream(event.streams[0]);
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      console.log('Connection state:', pc.connectionState);
+      onConnectionStateChange(pc.connectionState);
+
+      if (pc.connectionState === 'failed') {
+        console.error('Connection failed, attempting restart');
+        pc.restartIce();
+      }
+    };
+
     peerConnectionRef.current = pc;
 
     console.log('Adding local tracks:', localStream.getTracks().length);
@@ -229,6 +319,69 @@ export const useWebRTCSignaling = ({
       },
     });
 
+    // Helper to send signals
+    const sendChannelSignal = async (type: string, payload: any) => {
+      if (!channelRef.current) return;
+      
+      await channelRef.current.send({
+        type: 'broadcast',
+        event: type,
+        payload: {
+          type,
+          payload,
+          from: userId,
+          role,
+        },
+      });
+    };
+
+    // Helper to process ICE candidate queue
+    const processQueue = async () => {
+      if (!pc.remoteDescription) return;
+      
+      console.log('Processing queued ICE candidates:', iceCandidatesQueue.current.length);
+      
+      while (iceCandidatesQueue.current.length > 0) {
+        const candidate = iceCandidatesQueue.current.shift();
+        if (candidate) {
+          try {
+            await pc.addIceCandidate(candidate);
+            console.log('Added queued ICE candidate');
+          } catch (error) {
+            console.error('Error adding queued ICE candidate:', error);
+          }
+        }
+      }
+    };
+
+    // Helper to create offer
+    const doCreateOffer = async () => {
+      if (!pc || !channelReadyRef.current || offerCreatedRef.current) {
+        return;
+      }
+
+      try {
+        console.log('Creating offer...');
+        offerCreatedRef.current = true;
+        
+        const offer = await pc.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: true,
+        });
+
+        await pc.setLocalDescription(offer);
+        console.log('Local description set, sending offer');
+
+        await sendChannelSignal('offer', {
+          type: offer.type,
+          sdp: offer.sdp,
+        });
+      } catch (error) {
+        console.error('Error creating offer:', error);
+        offerCreatedRef.current = false;
+      }
+    };
+
     channel
       .on('broadcast', { event: 'offer' }, async ({ payload }: { payload: SignalingMessage }) => {
         console.log('Received offer message:', payload);
@@ -241,13 +394,13 @@ export const useWebRTCSignaling = ({
           await pc.setRemoteDescription(new RTCSessionDescription(payload.payload));
           console.log('Remote description set from offer, creating answer');
 
-          await processIceCandidatesQueue();
+          await processQueue();
 
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           console.log('Local description set from answer, sending');
 
-          await sendSignal('answer', {
+          await sendChannelSignal('answer', {
             type: answer.type,
             sdp: answer.sdp,
           });
@@ -266,7 +419,7 @@ export const useWebRTCSignaling = ({
           await pc.setRemoteDescription(new RTCSessionDescription(payload.payload));
           console.log('Remote description set from answer');
 
-          await processIceCandidatesQueue();
+          await processQueue();
         } catch (error) {
           console.error('Error handling answer:', error);
         }
@@ -300,7 +453,7 @@ export const useWebRTCSignaling = ({
 
           if (channelReadyRef.current && !offerCreatedRef.current) {
             console.log('Both sides ready, creating offer');
-            createOffer();
+            doCreateOffer();
           }
         }
       })
@@ -312,12 +465,17 @@ export const useWebRTCSignaling = ({
           channelReadyRef.current = true;
           console.log('Channel ready, announcing presence');
 
-          await sendSignal('user-ready', { ready: true });
+          await sendChannelSignal('user-ready', { ready: true });
 
           if (role === 'candidate') {
             console.log('Candidate: waiting for offer from interviewer');
           } else {
             console.log('Interviewer: waiting for candidate to be ready');
+            // Check if candidate already sent ready
+            if (remoteReadyRef.current && !offerCreatedRef.current) {
+              console.log('Candidate already ready, creating offer now');
+              doCreateOffer();
+            }
           }
         }
       });
@@ -328,13 +486,22 @@ export const useWebRTCSignaling = ({
       console.log('Cleaning up WebRTC connection');
       // Reset offer state and ICE queue so a fresh connection can be established
       offerCreatedRef.current = false;
+      remoteReadyRef.current = false;
+      channelReadyRef.current = false;
       iceCandidatesQueue.current = [];
       setIsChannelReady(false);
       
-      channel.unsubscribe();
-      pc.close();
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+        channelRef.current = null;
+      }
+      
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
+      }
     };
-  }, [sessionId, userId, role, localStream, createPeerConnection, sendSignal, createOffer, processIceCandidatesQueue]);
+  }, [sessionId, userId, role, localStream, onRemoteStream, onConnectionStateChange]);
 
   return { peerConnection: peerConnectionRef.current };
 };
