@@ -282,6 +282,47 @@ export type Database = {
           },
         ]
       }
+      interview_room_presence: {
+        Row: {
+          audio_enabled: boolean | null
+          id: string
+          joined_at: string | null
+          left_at: string | null
+          role: string
+          session_id: string | null
+          user_id: string
+          video_enabled: boolean | null
+        }
+        Insert: {
+          audio_enabled?: boolean | null
+          id?: string
+          joined_at?: string | null
+          left_at?: string | null
+          role: string
+          session_id?: string | null
+          user_id: string
+          video_enabled?: boolean | null
+        }
+        Update: {
+          audio_enabled?: boolean | null
+          id?: string
+          joined_at?: string | null
+          left_at?: string | null
+          role?: string
+          session_id?: string | null
+          user_id?: string
+          video_enabled?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_room_presence_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "interview_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       interview_sessions: {
         Row: {
           candidate_id: string

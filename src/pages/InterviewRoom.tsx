@@ -1,23 +1,94 @@
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import CodeCompiler from "@/components/CodeCompiler";
-import VideoCallPlaceholder from "@/components/interview/VideoCallPlaceholder";
+import VideoCall from "@/components/interview/VideoCall";
 import InterviewControls from "@/components/interview/InterviewControls";
 import InterviewNotes from "@/components/interview/InterviewNotes";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Code2 } from "lucide-react";
+import { Code2, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { validateInterviewAccess } from "@/utils/interviewRoomAuth";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const InterviewRoom = () => {
   const { sessionId } = useParams();
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<'interviewer' | 'candidate' | null>(null);
+  const [isValidating, setIsValidating] = useState(true);
+  const [accessError, setAccessError] = useState<string | null>(null);
 
-  const handleEndInterview = () => {
-    toast({
-      title: "Interview Ended",
-      description: "The interview session has been completed.",
-    });
+  useEffect(() => {
+    const validateAccess = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user || !sessionId) {
+          setAccessError('Authentication required');
+          setIsValidating(false);
+          return;
+        }
+
+        setUserId(user.id);
+
+        const validation = await validateInterviewAccess(sessionId, user.id);
+        
+        if (!validation.hasAccess) {
+          setAccessError(validation.error || 'Access denied');
+          setIsValidating(false);
+          return;
+        }
+
+        setUserRole(validation.role || null);
+        
+        // Update interview status to in_progress
+        await supabase
+          .from('interview_sessions')
+          .update({ status: 'in_progress' })
+          .eq('id', sessionId);
+
+        setIsValidating(false);
+      } catch (error) {
+        console.error('Error validating access:', error);
+        setAccessError('Failed to validate access');
+        setIsValidating(false);
+      }
+    };
+
+    validateAccess();
+  }, [sessionId]);
+
+  const handleEndInterview = async () => {
+    if (!sessionId) return;
+
+    try {
+      // Update interview status to completed
+      await supabase
+        .from('interview_sessions')
+        .update({ 
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', sessionId);
+
+      toast({
+        title: "Interview Ended",
+        description: "The interview session has been completed.",
+      });
+
+      navigate('/interviews');
+    } catch (error) {
+      console.error('Error ending interview:', error);
+      toast({
+        title: "Error",
+        description: "Failed to end interview session.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSaveProgress = () => {
@@ -27,10 +98,41 @@ const InterviewRoom = () => {
     });
   };
 
-  const handleNotesChange = (notes: string) => {
-    // Auto-save notes to database
-    console.log("Notes updated:", notes);
+  const handleNotesChange = async (notes: string) => {
+    if (!sessionId) return;
+    
+    try {
+      await supabase
+        .from('interview_sessions')
+        .update({ notes })
+        .eq('id', sessionId);
+    } catch (error) {
+      console.error('Error saving notes:', error);
+    }
   };
+
+  if (isValidating) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+          <p className="text-muted-foreground">Validating access...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (accessError || !userId || !userRole) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background p-4">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertDescription>
+            {accessError || 'Access denied'}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -79,7 +181,12 @@ const InterviewRoom = () => {
               {/* Video Call */}
               <ResizablePanel defaultSize={50} minSize={30}>
                 <div className="h-full p-4 bg-background">
-                  <VideoCallPlaceholder />
+                  <VideoCall
+                    sessionId={sessionId!}
+                    userId={userId}
+                    role={userRole}
+                    onEndCall={handleEndInterview}
+                  />
                 </div>
               </ResizablePanel>
 
