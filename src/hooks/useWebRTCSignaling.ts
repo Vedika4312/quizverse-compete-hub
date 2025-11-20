@@ -7,6 +7,22 @@ const ICE_SERVERS = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    // Free TURN servers for NAT traversal
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
   ],
 };
 
@@ -32,7 +48,6 @@ export const useWebRTCSignaling = ({
   const [isChannelReady, setIsChannelReady] = useState(false);
   const iceCandidatesQueue = useRef<RTCIceCandidate[]>([]);
   const offerCreatedRef = useRef(false);
-  const remoteReadyRef = useRef(false);
 
   const sendSignal = useCallback(async (type: string, payload: any) => {
     if (!channelRef.current) {
@@ -240,29 +255,20 @@ export const useWebRTCSignaling = ({
           console.error('Error adding ICE candidate:', error);
         }
       })
-      .on('broadcast', { event: 'user-ready' }, ({ payload }: { payload: SignalingMessage }) => {
-        console.log('User ready:', payload.from, payload.role);
-
-        if (role === 'interviewer' && payload.role === 'candidate') {
-          console.log('Candidate is ready, both participants ready');
-          remoteReadyRef.current = true;
-          
-          if (isChannelReady && !offerCreatedRef.current) {
-            console.log('Creating offer now that both users are ready');
-            setTimeout(() => createOffer(), 500);
-          }
-        }
-      })
       .subscribe(async (status) => {
         console.log('Channel subscription status:', status);
 
         if (status === 'SUBSCRIBED') {
           setIsChannelReady(true);
-          console.log('Channel ready, announcing presence');
+          console.log('Channel ready');
 
-          await sendSignal('user-ready', { ready: true });
-
-          console.log('Waiting for remote user to be ready...');
+          // Interviewer creates offer immediately when channel is ready
+          if (role === 'interviewer') {
+            console.log('Interviewer: creating offer immediately');
+            setTimeout(() => createOffer(), 100); // Small delay to ensure state updates
+          } else {
+            console.log('Candidate: waiting for offer');
+          }
         }
       });
 
@@ -273,7 +279,7 @@ export const useWebRTCSignaling = ({
       channel.unsubscribe();
       pc.close();
     };
-  }, [sessionId, userId, role, localStream, createPeerConnection, sendSignal, createOffer, processIceCandidatesQueue]);
+  }, [sessionId, userId, role, localStream, createPeerConnection, sendSignal, createOffer, processIceCandidatesQueue, isChannelReady]);
 
   return { peerConnection: peerConnectionRef.current };
 };

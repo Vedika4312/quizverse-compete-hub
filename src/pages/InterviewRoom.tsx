@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import CodeCompiler from "@/components/CodeCompiler";
 // Using Daily.co for video calls instead of Jitsi
-import DailyVideoCall from "@/components/interview/DailyVideoCall";
+import VideoCall from "@/components/interview/VideoCall";
 import InterviewControls from "@/components/interview/InterviewControls";
 import InterviewNotes from "@/components/interview/InterviewNotes";
 import { useToast } from "@/hooks/use-toast";
@@ -182,7 +182,7 @@ const InterviewRoom = () => {
               {/* Video Call */}
               <ResizablePanel defaultSize={50} minSize={30}>
                 <div className="h-full p-4 bg-background">
-                  <DailyVideoCall
+                  <VideoCall
                     sessionId={sessionId!}
                     userId={userId}
                     role={userRole}
