@@ -1,5 +1,5 @@
 export interface SignalingMessage {
-  type: 'offer' | 'answer' | 'ice-candidate' | 'user-joined' | 'user-left';
+  type: 'offer' | 'answer' | 'ice-candidate' | 'user-joined' | 'user-left' | 'user-ready';
   payload: any;
   from: string;
   role: 'interviewer' | 'candidate';

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { SignalingMessage } from '@/types/webrtc';
@@ -29,11 +29,16 @@ export const useWebRTCSignaling = ({
 }: UseWebRTCSignalingProps) => {
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const makingOfferRef = useRef(false);
-  const politeRef = useRef(role === 'candidate'); // Candidate is polite peer
+  const [isChannelReady, setIsChannelReady] = useState(false);
+  const iceCandidatesQueue = useRef<RTCIceCandidate[]>([]);
 
   const sendSignal = useCallback(async (type: string, payload: any) => {
-    if (!channelRef.current) return;
+    if (!channelRef.current) {
+      console.log('Channel not ready, cannot send signal:', type);
+      return;
+    }
+    
+    console.log(`Sending ${type} signal:`, payload);
     
     const message: SignalingMessage = {
       type: type as any,
@@ -50,17 +55,34 @@ export const useWebRTCSignaling = ({
   }, [userId, role]);
 
   const createPeerConnection = useCallback(() => {
+    console.log('Creating peer connection');
     const pc = new RTCPeerConnection(ICE_SERVERS);
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        sendSignal('ice-candidate', event.candidate);
+        console.log('New ICE candidate:', event.candidate.candidate);
+        sendSignal('ice-candidate', event.candidate.toJSON());
+      } else {
+        console.log('ICE gathering complete');
       }
     };
 
+    pc.oniceconnectionstatechange = () => {
+      console.log('ICE connection state:', pc.iceConnectionState);
+    };
+
+    pc.onicegatheringstatechange = () => {
+      console.log('ICE gathering state:', pc.iceGatheringState);
+    };
+
+    pc.onsignalingstatechange = () => {
+      console.log('Signaling state:', pc.signalingState);
+    };
+
     pc.ontrack = (event) => {
-      console.log('Received remote track:', event.track.kind);
+      console.log('Received remote track:', event.track.kind, event.streams.length);
       if (event.streams && event.streams[0]) {
+        console.log('Setting remote stream');
         onRemoteStream(event.streams[0]);
       }
     };
@@ -68,60 +90,116 @@ export const useWebRTCSignaling = ({
     pc.onconnectionstatechange = () => {
       console.log('Connection state:', pc.connectionState);
       onConnectionStateChange(pc.connectionState);
-    };
-
-    pc.onnegotiationneeded = async () => {
-      try {
-        makingOfferRef.current = true;
-        await pc.setLocalDescription();
-        sendSignal('offer', pc.localDescription);
-      } catch (error) {
-        console.error('Error in negotiation:', error);
-      } finally {
-        makingOfferRef.current = false;
+      
+      if (pc.connectionState === 'failed') {
+        console.error('Connection failed, attempting restart');
+        pc.restartIce();
       }
     };
 
     return pc;
   }, [sendSignal, onRemoteStream, onConnectionStateChange]);
 
+  // Process queued ICE candidates
+  const processIceCandidatesQueue = useCallback(async () => {
+    const pc = peerConnectionRef.current;
+    if (!pc || !pc.remoteDescription) return;
+
+    console.log('Processing queued ICE candidates:', iceCandidatesQueue.current.length);
+    
+    while (iceCandidatesQueue.current.length > 0) {
+      const candidate = iceCandidatesQueue.current.shift();
+      if (candidate) {
+        try {
+          await pc.addIceCandidate(candidate);
+          console.log('Added queued ICE candidate');
+        } catch (error) {
+          console.error('Error adding queued ICE candidate:', error);
+        }
+      }
+    }
+  }, []);
+
+  // Create offer (for interviewer)
+  const createOffer = useCallback(async () => {
+    const pc = peerConnectionRef.current;
+    if (!pc || !isChannelReady) {
+      console.log('Not ready to create offer');
+      return;
+    }
+
+    try {
+      console.log('Creating offer...');
+      const offer = await pc.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true,
+      });
+      
+      await pc.setLocalDescription(offer);
+      console.log('Local description set, sending offer');
+      
+      await sendSignal('offer', {
+        type: offer.type,
+        sdp: offer.sdp,
+      });
+    } catch (error) {
+      console.error('Error creating offer:', error);
+    }
+  }, [isChannelReady, sendSignal]);
+
   useEffect(() => {
-    if (!localStream) return;
+    if (!localStream) {
+      console.log('No local stream yet');
+      return;
+    }
+
+    console.log('Initializing WebRTC connection as', role);
 
     const pc = createPeerConnection();
     peerConnectionRef.current = pc;
 
     // Add local tracks to peer connection
+    console.log('Adding local tracks:', localStream.getTracks().length);
     localStream.getTracks().forEach((track) => {
+      console.log('Adding track:', track.kind, track.enabled);
       pc.addTrack(track, localStream);
     });
 
-    const channel = supabase.channel(`interview-signaling-${sessionId}`);
+    const channel = supabase.channel(`interview-signaling-${sessionId}`, {
+      config: {
+        broadcast: { self: false },
+      },
+    });
 
     channel
       .on('broadcast', { event: 'offer' }, async ({ payload }: { payload: SignalingMessage }) => {
+        console.log('Received offer from:', payload.from, payload.role);
         if (payload.from === userId) return;
 
         const pc = peerConnectionRef.current;
         if (!pc) return;
 
         try {
-          const offerCollision = 
-            (payload.type === 'offer') &&
-            (makingOfferRef.current || pc.signalingState !== 'stable');
-
-          const ignoreOffer = !politeRef.current && offerCollision;
-          if (ignoreOffer) return;
-
           await pc.setRemoteDescription(new RTCSessionDescription(payload.payload));
+          console.log('Remote description set, creating answer');
+          
+          // Process queued ICE candidates
+          await processIceCandidatesQueue();
+          
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
-          sendSignal('answer', pc.localDescription);
+          console.log('Local description set, sending answer');
+          
+          await sendSignal('answer', {
+            type: answer.type,
+            sdp: answer.sdp,
+          });
         } catch (error) {
           console.error('Error handling offer:', error);
         }
       })
       .on('broadcast', { event: 'answer' }, async ({ payload }: { payload: SignalingMessage }) => {
+        console.log('Received answer from:', payload.from, payload.role);
         if (payload.from === userId) return;
 
         const pc = peerConnectionRef.current;
@@ -129,6 +207,10 @@ export const useWebRTCSignaling = ({
 
         try {
           await pc.setRemoteDescription(new RTCSessionDescription(payload.payload));
+          console.log('Remote description set from answer');
+          
+          // Process queued ICE candidates
+          await processIceCandidatesQueue();
         } catch (error) {
           console.error('Error handling answer:', error);
         }
@@ -140,20 +222,55 @@ export const useWebRTCSignaling = ({
         if (!pc) return;
 
         try {
-          await pc.addIceCandidate(new RTCIceCandidate(payload.payload));
+          const candidate = new RTCIceCandidate(payload.payload);
+          
+          // If we don't have remote description yet, queue the candidate
+          if (!pc.remoteDescription) {
+            console.log('Queueing ICE candidate (no remote description yet)');
+            iceCandidatesQueue.current.push(candidate);
+          } else {
+            console.log('Adding ICE candidate');
+            await pc.addIceCandidate(candidate);
+          }
         } catch (error) {
           console.error('Error adding ICE candidate:', error);
         }
       })
-      .subscribe();
+      .on('broadcast', { event: 'user-ready' }, ({ payload }: { payload: SignalingMessage }) => {
+        console.log('User ready:', payload.from, payload.role);
+        
+        // If we're the interviewer and candidate is ready, create offer
+        if (role === 'interviewer' && payload.role === 'candidate') {
+          console.log('Candidate is ready, creating offer');
+          setTimeout(() => createOffer(), 1000);
+        }
+      })
+      .subscribe(async (status) => {
+        console.log('Channel subscription status:', status);
+        
+        if (status === 'SUBSCRIBED') {
+          setIsChannelReady(true);
+          console.log('Channel ready, announcing presence');
+          
+          // Announce that we're ready
+          await sendSignal('user-ready', { ready: true });
+          
+          // If we're the interviewer, wait a bit then create offer
+          if (role === 'interviewer') {
+            console.log('Interviewer role: will create offer after delay');
+            setTimeout(() => createOffer(), 2000);
+          }
+        }
+      });
 
     channelRef.current = channel;
 
     return () => {
+      console.log('Cleaning up WebRTC connection');
       channel.unsubscribe();
       pc.close();
     };
-  }, [sessionId, userId, localStream, createPeerConnection, sendSignal]);
+  }, [sessionId, userId, role, localStream, createPeerConnection, sendSignal, createOffer, processIceCandidatesQueue]);
 
   return { peerConnection: peerConnectionRef.current };
 };
