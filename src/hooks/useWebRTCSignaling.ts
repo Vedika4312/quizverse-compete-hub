@@ -310,10 +310,15 @@ export const useWebRTCSignaling = ({
 
     return () => {
       console.log('Cleaning up WebRTC connection');
+      // Reset offer state and ICE queue so a fresh connection can be established
+      offerCreatedRef.current = false;
+      iceCandidatesQueue.current = [];
+      setIsChannelReady(false);
+      
       channel.unsubscribe();
       pc.close();
     };
-  }, [sessionId, userId, role, localStream, createPeerConnection, sendSignal, createOffer, processIceCandidatesQueue, isChannelReady]);
+  }, [sessionId, userId, role, localStream, createPeerConnection, sendSignal, createOffer, processIceCandidatesQueue]);
 
   return { peerConnection: peerConnectionRef.current };
 };
